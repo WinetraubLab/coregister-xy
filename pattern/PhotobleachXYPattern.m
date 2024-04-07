@@ -30,18 +30,31 @@ exposure_sec_mm = line_exposure_sec_mm*ones(size(x_start_mm));
 
 % Guidelines - these help to find the photobleach area
 if true % set to true to have guidelines
-    x_start_mm = [x_start_mm [ 1.0  0    0.0   0.0]];
-    x_end_mm =   [x_end_mm   [ 0.4  0    0.0   0.03]];
-    y_start_mm = [y_start_mm [ 0   -1.5 -0.06  0.0]];
-    y_end_mm =   [y_end_mm   [ 0   -0.4  0.0   0.0]];
+    nGridLines = 0;
+    
+    % Draw the lines within FOV
+    x_start_mm = [x_start_mm [-0.15 -0.15 -0.15 0.1  ]];
+    x_end_mm =   [x_end_mm   [-0.15 -0.15 -0.1  0.15 ]];
+    y_start_mm = [y_start_mm [-0.15  0.1   0.15 0.15 ]];
+    y_end_mm =   [y_end_mm   [-0.1   0.15  0.15 0.15 ]];
+    nGridLines = nGridLines + 4;
+    
+    % Draw the lines outside FOV
+    x_start_mm = [x_start_mm [ 1.0  0  ]];
+    x_end_mm =   [x_end_mm   [ 0.4  0  ]];
+    y_start_mm = [y_start_mm [ 0   -1.5]];
+    y_end_mm =   [y_end_mm   [ 0   -0.4]];
+    nGridLines = nGridLines + 2;
+    
+    % Set Z and exposure
     if ~isempty(z_mm)
-        L_depth_mm = min(z_mm)-0.5*mean(diff(z_mm));
+        L_depth_mm = min(z_mm) + 3*mean(diff(unique(z_mm)));
     else
         L_depth_mm = 0;
     end
-    z_mm = [z_mm ones(1,4)*L_depth_mm];
-    guide_line_exposure_sec_mm = line_exposure_sec_mm*5; % sec/mm
-    exposure_sec_mm = [exposure_sec_mm guide_line_exposure_sec_mm*ones(1,4)];
+    z_mm = [z_mm ones(1,nGridLines)*L_depth_mm];
+    guide_line_exposure_sec_mm = line_exposure_sec_mm; % sec/mm
+    exposure_sec_mm = [exposure_sec_mm guide_line_exposure_sec_mm*ones(1,nGridLines)];
 end
 
 % Photobleach configurations
