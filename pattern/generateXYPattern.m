@@ -6,7 +6,7 @@ function [...
 % The lines are from (x_start_mm(i), y_start_mm(i)) (to x_end_mm(i), y_end_mm(i)) 
 % at depth z
 % INPUT: verbose (default: false). If set to true, function will output
-% line information as well as image
+% line information as well as image 
 
 %% Inputs
 if ~exist('verbose','var')
