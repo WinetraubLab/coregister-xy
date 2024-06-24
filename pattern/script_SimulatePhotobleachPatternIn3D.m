@@ -13,7 +13,7 @@ y_grid_mm = -0.25:1e-3:0.25;
 z_grid_mm =  0.00:5e-3:0.20;
 
 % Physical parameters 
-NA = 0.8; % 10x use 0.2, for 40x use 0.8
+NA = 0.35; % Match NA to observed photobleach pattern. For 40x use 0.35 (though lens NA is 0.8)
 lambda_mm = 900e-9*1e3; % Wavelength in m
 n = 1.4; % Medium index of refraction
 photobleach_intensity = 40; % Can be any number >0
