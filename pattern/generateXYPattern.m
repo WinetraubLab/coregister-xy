@@ -27,13 +27,12 @@ x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm
 
 %% Alignment markers (L shape)
 nGridLines = 0;
-    
-% Draw the lines within FOV
-x_start_mm = [x_start_mm [-0.15 -0.15 -0.15 0.1  ]];
-x_end_mm =   [x_end_mm   [-0.15 -0.15 -0.1  0.15 ]];
-y_start_mm = [y_start_mm [-0.15  0.1   0.15 0.15 ]];
-y_end_mm =   [y_end_mm   [-0.1   0.15  0.15 0.15 ]];
-nGridLines = nGridLines + 4;
+
+x_start_mm = [x_start_mm [-0.15 -0.15 -0.15 0.1  0.16]];
+x_end_mm =   [x_end_mm   [-0.15 -0.15 -0.1  0.13 0.19]];
+y_start_mm = [y_start_mm [-0.15  0.1   0.15 0.15 0.15]];
+y_end_mm =   [y_end_mm   [-0.1   0.15  0.15 0.15 0.15]];
+nGridLines = nGridLines + 5;
 
 %% Guidelines
 % Guidelines - these help to find the photobleach area
@@ -47,7 +46,7 @@ if false
 end
 
 %% Markers depths    
-% Set Z and exposure
+% Set Z
 if ~isempty(z_mm)
     L_depth_mm = min(z_mm) + 3*mean(diff(unique(z_mm)));
 else
@@ -101,11 +100,6 @@ if verbose
         end
     end
     pause(0.1);
-end
-
-%% Describe pattern
-if verbose
-    DescribePattern(x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm)
 end
 end
 
