@@ -38,12 +38,12 @@ nGridLines = nGridLines + 4;
 %% Guidelines
 % Guidelines - these help to find the photobleach area
 if false
-% Draw the lines outside FOV
-x_start_mm = [x_start_mm [ 1.0  0  ]];
-x_end_mm =   [x_end_mm   [ 0.4  0  ]];
-y_start_mm = [y_start_mm [ 0   -1.5]];
-y_end_mm =   [y_end_mm   [ 0   -0.4]];
-nGridLines = nGridLines + 2;
+    % Draw the lines outside FOV
+    x_start_mm = [x_start_mm [ 1.0  0  ]];
+    x_end_mm =   [x_end_mm   [ 0.4  0  ]];
+    y_start_mm = [y_start_mm [ 0   -1.5]];
+    y_end_mm =   [y_end_mm   [ 0   -0.4]];
+    nGridLines = nGridLines + 2;
 end
 
 %% Markers depths    
@@ -129,20 +129,4 @@ else
     y_start_mm = xp_start_mm + offset_y_mm;
     y_end_mm =   xp_end_mm   + offset_y_mm;
 end 
-end
-
-function DescribePattern(x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm)
-z = unique(z_mm);
-
-fprintf('Draw Lines from (x,y) to (x,y) at the following depths. Units: mm\n');
-for i=1:length(z)
-    fprintf('Depth: %.3f\n',z(i))
-    ii = find(z_mm == z(i));
-    for j=ii
-        fprintf('   (%+.3f,%+.3f) -> (%+.3f,%+.3f)\n',...
-            x_start_mm(j),y_start_mm(j),...
-            x_end_mm(j),y_end_mm(j)...
-            );
-    end
-end
 end

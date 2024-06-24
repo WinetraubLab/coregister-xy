@@ -95,6 +95,9 @@ for z=z_grid_mm
     pause(0.1);
 end
 
+%% Finally, print to screen a description of how this pattern was created
+describePattern(x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_start_end_mm)
+
 function c_all = addOCTScanRectangle(c_all, xx_mm, yy_mm, oct_scan_mm,pixel_size_mm)
 r = zeros(size(c_all));
 
@@ -108,4 +111,20 @@ r(xx_mm >= oct_scan_mm(1) & xx_mm <= oct_scan_mm(2) & abs(yy_mm-oct_scan_mm(2)) 
 
 c_all(r==1) = 0;
 
+end
+
+function describePattern(x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm)
+z = unique(z_mm);
+
+fprintf('Draw Lines from (x,y) to (x,y) at the following depths. Units: mm\n');
+for i=1:length(z)
+    fprintf('Depth: %.3f\n',z(i))
+    ii = find(z_mm == z(i));
+    for j=ii
+        fprintf('   (%+.3f,%+.3f) -> (%+.3f,%+.3f)\n',...
+            x_start_mm(j),y_start_mm(j),...
+            x_end_mm(j),y_end_mm(j)...
+            );
+    end
+end
 end
