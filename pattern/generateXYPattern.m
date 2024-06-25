@@ -8,7 +8,7 @@ function [...
 % INPUT: verbose (default: false). If set to true, function will output
 % line information as well as image 
 
-%% Inputs
+%% Inputs check
 if ~exist('verbose','var')
     verbose = false;
 end

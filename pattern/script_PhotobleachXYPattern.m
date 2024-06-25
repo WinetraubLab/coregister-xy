@@ -10,7 +10,7 @@
 % physcaily running the test.
 skipHardware = false;
 
-% Photobleach pattern configuration
+% OCT probe
 octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
 
 % Pattern to photobleach. System will photobleach n lines from 
