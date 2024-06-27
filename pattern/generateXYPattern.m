@@ -34,16 +34,6 @@ y_start_mm = [y_start_mm [-0.15  0.1   0.15 0.15 0.15]];
 y_end_mm =   [y_end_mm   [-0.1   0.15  0.15 0.15 0.15]];
 nGridLines = nGridLines + 5;
 
-%% Guidelines
-% Guidelines - these help to find the photobleach area
-if false
-    % Draw the lines outside FOV
-    x_start_mm = [x_start_mm [ 1.0  0  ]];
-    x_end_mm =   [x_end_mm   [ 0.4  0  ]];
-    y_start_mm = [y_start_mm [ 0   -1.5]];
-    y_end_mm =   [y_end_mm   [ 0   -0.4]];
-    nGridLines = nGridLines + 2;
-end
 
 %% Markers depths    
 % Set Z
@@ -92,7 +82,7 @@ if verbose
         if subplotI == 1
             xlim([min([x_start_mm x_end_mm])-100e-3, max([x_start_mm x_end_mm])+100e-3])
             ylim([min([y_start_mm y_end_mm])-100e-3, max([y_start_mm y_end_mm])+100e-3])
-            title('Overview');
+            title(sprintf('Overview\n(Blue z=%.0f\\mum, Red z=%.0f\\mum)',min(z_mm)*1e3,max(z_mm)*1e3));
         else
             xlim(mean([x_start_mm1 x_end_mm1])+2*std([x_start_mm1 x_end_mm1])*[-1 1])
             ylim(mean([y_start_mm1 y_end_mm1])+2*std([y_start_mm1 y_end_mm1])*[-1 1])
@@ -105,12 +95,13 @@ end
 
 %% Small Pattern
 function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern(offset_x_mm, offset_y_mm, isflip)
-xyscale = 120e-3; %mm
-xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*xyscale + 5e-3 -xyscale/2;
-xp_end_mm   = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,  3]/3*xyscale - 5e-3 -xyscale/2;
-yp_start_mm = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*xyscale         -xyscale/2;
-yp_end_mm   = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*xyscale         -xyscale/2;
-z_mm       = [0     1     2    5      4     3     6     7     8     11   10     9]*15e-3;
+scale1 = 100e-3; %mm
+scale2 = 170e-3;
+xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*scale1 + 10e-3 -scale1/2;
+xp_end_mm   = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,  3]/3*scale1 - 10e-3 -scale1/2;
+yp_start_mm = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
+yp_end_mm   = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
+z_mm        = [0,1,2,5,4,3,6,7,8,11,10,9]*20e-3;
 
 if ~isflip
     x_start_mm = xp_start_mm + offset_x_mm;
