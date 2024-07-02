@@ -2,11 +2,10 @@ import math
 import numpy as np
 import numpy.testing as npt
 import unittest
-from fit_plane import FitPlane
+from plane.fit_plane import FitPlane
 
 class TestFitPlane(unittest.TestCase):
 
-    # Define default pattern
     def setUp(self):
       self.source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
 
@@ -38,7 +37,6 @@ class TestFitPlane(unittest.TestCase):
     
     def test_rotation_90(self):
       # Create array of rotated points
-
       dest_image_points = np.array([self._rotate_point(x,y,90) for [x,y] in self.source_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
 
@@ -53,7 +51,6 @@ class TestFitPlane(unittest.TestCase):
 
     def test_rotation_45(self):
       # Create array of rotated points
-
       dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
 

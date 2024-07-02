@@ -1,4 +1,4 @@
-
 *.asv
 *.tiff
 *.DS_Store
+*.pyc
