@@ -17,11 +17,56 @@ class TestFitPlane(unittest.TestCase):
       dest_image_points = np.array([[p[0]+10,p[1]+5] for p in self.source_image_points])
 
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
-      result = fp.transform_point([0,0])
-      self.assertAlmostEqual(result[0], 10)
-      self.assertAlmostEqual(result[1], 5)
-
+      
       # Apply the transformation on the source points and make sure that it matches destination points
+      result1 = fp.transform_point([0,1])
+      self.assertAlmostEqual(result1[0], 10)
+      self.assertAlmostEqual(result1[1], 6)
+
+      result2 = fp.transform_point([1,0])
+      self.assertAlmostEqual(result2[0], 11)
+      self.assertAlmostEqual(result2[1], 5)
+
+    def _rotate_point(self,x,y,angle):
+        # Rotates a point by specified degree angle
+        angle_radians = math.radians(angle)
+        cos_theta = math.cos(angle_radians)
+        sin_theta = math.sin(angle_radians)
+        x_new = x * cos_theta - y * sin_theta
+        y_new = x * sin_theta + y * cos_theta
+        return x_new, y_new
+    
+    def test_rotation_90(self):
+      # Create array of rotated points
+
+      dest_image_points = np.array([self._rotate_point(x,y,90) for [x,y] in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      # Apply the transformation on the source points
+      result1 = fp.transform_point([0,1]) 
+      result2 = fp.transform_point([1,0]) 
+
+      self.assertAlmostEqual(result1[0], -1)
+      self.assertAlmostEqual(result1[1], 0)
+      self.assertAlmostEqual(result2[0], 0)
+      self.assertAlmostEqual(result2[1], 1)
+
+    def test_rotation_45(self):
+      # Create array of rotated points
+
+      dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      # Apply the transformation on the source points
+      result1 = fp.transform_point([0,1])
+      result2 = fp.transform_point([1,0]) 
+
+      self.assertAlmostEqual(result1[0], -1 * 1/math.sqrt(2))
+      self.assertAlmostEqual(result1[1], 1/math.sqrt(2))
+      self.assertAlmostEqual(result2[0], 1/math.sqrt(2))
+      self.assertAlmostEqual(result2[1], 1/math.sqrt(2))
+
+
 
 if __name__ == '__main__':
   unittest.main()
