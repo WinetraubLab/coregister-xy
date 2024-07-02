@@ -66,6 +66,23 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result2[0], 1/math.sqrt(2))
       self.assertAlmostEqual(result2[1], 1/math.sqrt(2))
 
+    def test_scaling(self):
+      # Scale by factor of 2 on x, factor of 4 on y
+      dest_image_points = np.array([[p[0]*2,p[1]*4] for p in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      result1 = fp.transform_point([0,1])
+      result2 = fp.transform_point([1,0])
+      result3 = fp.transform_point([0,0])
+
+      self.assertAlmostEqual(result1[0], 0)
+      self.assertAlmostEqual(result1[1], 4)
+      self.assertAlmostEqual(result2[0], 2)
+      self.assertAlmostEqual(result2[1], 0)
+      self.assertAlmostEqual(result3[0], 0)
+      self.assertAlmostEqual(result3[1], 0)
+
+
 
 
 if __name__ == '__main__':
