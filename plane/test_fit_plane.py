@@ -3,6 +3,7 @@ import numpy as np
 import numpy.testing as npt
 import unittest
 from plane.fit_plane import FitPlane
+import matplotlib.pyplot as plt
 
 class TestFitPlane(unittest.TestCase):
 
@@ -93,6 +94,25 @@ class TestFitPlane(unittest.TestCase):
       for i in range(len(dest_image_points)):
         for j in range(0,2):
           self.assertAlmostEqual(results[i][j], dest_image_points[i][j], places=3)
+
+    def test_transform_image(self):
+      # Test image transformation
+      source_image = np.zeros((12,12,3))
+      source_image[0,0] = (1,0,0)
+      source_image[10,0] = (0,1,0)
+      source_image[0,10] = (0,0,1)
+
+      rotated_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
+      dest_image_points = np.array([[p[0]+2,p[1]+4] for p in rotated_points])
+
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      dest_image = fp.transform_image(source_image)
+      self.assertAlmostEqual(dest_image[2,4,0], 1)
+      self.assertAlmostEqual(dest_image[7+2,7+4,1], 1)
+      
+      assert not np.any(dest_image[:,:,2] == 1)
+
 
 
 

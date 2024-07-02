@@ -55,4 +55,21 @@ class FitPlane:
 
         return np.array([x_new, y_new])
     
+    def transform_image(self, source_image):
+        """
+        Transform an image. 
+        Inputs:
+            source_image: An OpenCV image to be transformed.
+        """
+        c,r,_ = source_image.shape
+        new_image = np.zeros_like(source_image)
+
+        for i in range(c):
+            for j in range(r):
+                x_new, y_new = self.transform_point([i,j])
+                x_new = round(x_new)
+                y_new = round(y_new)
+                if 0 <= x_new < c and 0 <= y_new < r:
+                    new_image[x_new,y_new] = source_image[i,j]
+        return new_image
 
