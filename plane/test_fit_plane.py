@@ -79,6 +79,21 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result3[0], 0)
       self.assertAlmostEqual(result3[1], 0)
 
+    def test_anchor_point_mapping(self):
+      # Test combination of translation, rotation, scaling
+      source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
+      dest_image_points = np.array([[25,65], [16,13], [70,15], [22,18], [32,46], [40,38]])
+
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points)
+
+      results = []
+      for point in source_image_points:
+        results.append(fp.transform_point(point))
+
+      for i in range(len(dest_image_points)):
+        for j in range(0,2):
+          self.assertAlmostEqual(results[i][j], dest_image_points[i][j], places=3)
+
 
 
 
