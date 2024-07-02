@@ -2,7 +2,7 @@ import math
 import numpy as np
 import numpy.testing as npt
 import unittest
-from fit_plane import FitPlane
+from plane.fit_plane import FitPlane
 
 class TestFitPlane(unittest.TestCase):
 
