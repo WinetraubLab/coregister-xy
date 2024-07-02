@@ -61,15 +61,15 @@ class FitPlane:
         Inputs:
             source_image: An OpenCV image to be transformed.
         """
-        c,r,_ = source_image.shape
+        y_range, x_range,_ = source_image.shape
         new_image = np.zeros_like(source_image)
 
-        for i in range(c):
-            for j in range(r):
-                x_new, y_new = self.transform_point([i,j])
+        for x_i in range(x_range):
+            for y_i in range(y_range):
+                x_new, y_new = self.transform_point([x_i,y_i])
                 x_new = round(x_new)
                 y_new = round(y_new)
-                if 0 <= x_new < c and 0 <= y_new < r:
-                    new_image[x_new,y_new] = source_image[i,j]
+                if 0 <= y_new < y_range and 0 <= x_new < x_range:
+                    new_image[y_new,x_new] = source_image[y_i, x_i]
         return new_image
 
