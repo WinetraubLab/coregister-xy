@@ -159,6 +159,15 @@ class TestFitPlane(unittest.TestCase):
 
       transformed_image = fp.transform_image(source_image)
 
+      source_image_points = np.array(source_image_points)
+      dest_image_points = np.array(dest_image_points)
+
+      transformed_points = []
+      for point in source_image_points:
+        transformed_points.append(fp.transform_point(point))
+
+      transformed_points = np.array(transformed_points)
+
       fig,ax=plt.subplots(1,3)
       ax[0].imshow(source_image)
       ax[1].imshow(transformed_image)
@@ -166,7 +175,12 @@ class TestFitPlane(unittest.TestCase):
       ax[0].set_title("Source")
       ax[1].set_title("Transformed")
       ax[2].set_title("Target")
+      ax[0].scatter(source_image_points[:,0], source_image_points[:,1])
+      ax[1].scatter(transformed_points[:,0], transformed_points[:,1])
+      ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_anchor_points_image.png")
+
+    
 
 
 if __name__ == '__main__':
