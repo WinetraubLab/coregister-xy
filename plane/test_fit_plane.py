@@ -180,9 +180,9 @@ class TestFitPlane(unittest.TestCase):
       ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_anchor_points_image.png")
 
-    def test_scale_up_image(self):
+    def test_resize_target_image_and_points(self):
       """
-      Test to scale up an image. Source should be a small image and target should be larger.
+      Test to align images of different scales. Source should be a small image, and target should be larger. Target will be resized.
       """
       source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
       target_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
