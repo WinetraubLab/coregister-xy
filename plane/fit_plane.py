@@ -64,6 +64,10 @@ class FitPlane:
         y_range, x_range,_ = source_image.shape
         new_image = np.zeros_like(source_image)
 
+        # Mask to track pixels that need interpolation 
+        mask = np.zeros((y_range, x_range), dtype=bool)
+
+        # Direct mapping
         for x_i in range(x_range):
             for y_i in range(y_range):
                 x_new, y_new = self.transform_point([x_i,y_i])
@@ -71,5 +75,31 @@ class FitPlane:
                 y_new = round(y_new)
                 if 0 <= y_new < y_range and 0 <= x_new < x_range:
                     new_image[y_new,x_new] = source_image[y_i, x_i]
+                    mask[y_new, x_new] = True
+
+        # Interpolate unassigned pixels
+        for y_i in range(y_range):
+            for x_i in range(x_range):
+                if not mask[y_i, x_i]:
+                    new_image[y_i, x_i] = self.bilinear_interpolate_pixel(new_image, y_i, x_i)
+
         return new_image
 
+    def bilinear_interpolate_pixel(self, img, x, y):
+        # Bilinear interpolation to remove missing black "gaps" in transformed image
+        x0 = int(np.floor(x))
+        x1 = min(x0 + 1, img.shape[1] - 1)
+        y0 = int(np.floor(y))
+        y1 = min(y0 + 1, img.shape[0] - 1)
+
+        Ia = img[y0, x0]
+        Ib = img[y1, x0]
+        Ic = img[y0, x1]
+        Id = img[y1, x1]
+
+        wa = (x1 - x) * (y1 - y)
+        wb = (x1 - x) * (y - y0)
+        wc = (x - x0) * (y1 - y)
+        wd = (x - x0) * (y - y0)
+
+        return wa * Ia + wb * Ib + wc * Ic + wd * Id
