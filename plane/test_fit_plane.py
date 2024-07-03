@@ -180,7 +180,38 @@ class TestFitPlane(unittest.TestCase):
       ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_anchor_points_image.png")
 
-    
+    def test_scale_up_image(self):
+      """
+      Test to scale up an image. Source should be a small image and target should be larger.
+      """
+      source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
+      target_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
+
+      dest_image_points = np.array([[p[0]*2,p[1]*2] for p in self.source_image_points])
+
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+      transformed_image = fp.transform_image(source_image)
+      transformed_points = []
+
+      for point in self.source_image_points:
+        transformed_points.append(fp.transform_point(point))
+
+      transformed_points = np.array(transformed_points)
+
+      fig,ax=plt.subplots(1,3)
+      ax[0].imshow(source_image)
+      ax[1].imshow(transformed_image)
+      ax[2].imshow(target_image)
+      ax[0].set_title("Source")
+      ax[1].set_title("Transformed")
+      ax[2].set_title("Target")
+      ax[0].scatter(self.source_image_points[:,0], self.source_image_points[:,1])
+      ax[1].scatter(transformed_points[:,0], transformed_points[:,1])
+      ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
+      fig.savefig("test_scaling_up_image.png")
+
+      assert transformed_image.shape == target_image.shape
+
 
 
 if __name__ == '__main__':
