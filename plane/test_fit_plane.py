@@ -189,6 +189,8 @@ class TestFitPlane(unittest.TestCase):
 
       dest_image_points = np.array([[p[0]*2,p[1]*2] for p in self.source_image_points])
 
+      target_image, dest_image_points = self._resize_target(source_image, target_image, dest_image_points)
+
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
       transformed_image = fp.transform_image(source_image)
       transformed_points = []
@@ -211,6 +213,38 @@ class TestFitPlane(unittest.TestCase):
       fig.savefig("test_scaling_up_image.png")
 
       assert transformed_image.shape == target_image.shape
+
+    def _resize_target(self, source_image, target_image, dest_points=None):
+      # Resize target image to be similar dimensions to source image, keeping proportions
+      source_y, source_x, _ = source_image.shape
+      target_y, target_x, _ = target_image.shape
+      original_y, original_x = target_y, target_x
+      target_ratio = target_x/target_y
+
+      if target_y > source_y:
+        target_image = cv.resize(target_image, (int(source_y), int(target_ratio * source_y)))
+        target_y, target_x, _ = target_image.shape
+      if target_x > source_x:
+        target_image = cv.resize(target_image, (int(1/target_ratio * source_x), int(source_x)))
+        target_y, target_x, _ = target_image.shape
+
+      if np.any(dest_points):
+        # Find factor of size reduction
+        scaling_factor_y = target_y / original_y
+        scaling_factor_x = target_x / original_x
+        assert abs(scaling_factor_y - scaling_factor_x) < 0.01
+
+        # Rescale dest_points to new positions within target image
+        dest_points = np.array([[round(p[0] * scaling_factor_y), round(p[1] * scaling_factor_x)] for p in dest_points])
+
+      return target_image, dest_points
+    
+    def test_resize_target(self):
+      source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
+      target_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
+      target_image, _ = self._resize_target(source_image, target_image)
+      self.assertAlmostEqual(source_image.shape[0], target_image.shape[0])
+      self.assertAlmostEqual(source_image.shape[1], target_image.shape[1])
 
 
 
