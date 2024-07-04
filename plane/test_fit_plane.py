@@ -11,7 +11,7 @@ class TestFitPlane(unittest.TestCase):
     def setUp(self):
       self.source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
 
-    def test_main_function_runs(self):
+    def test_main_fit_function_runs(self):
       FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, self.source_image_points)
 
     def test_translation(self):
@@ -104,6 +104,16 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(dest_image[7+4,7+2,2], 1) # Pont along the X axis (blue) should have translated and rotated
       assert not np.any(dest_image[:,:,1] == 1) # Point along the Y axis (green) should have moved out of view
 
+    def test_image_size_specified(self):
+      # Create a dummy transformation
+      fp=FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, self.source_image_points)
+
+      # Create a dummy image and transofrm it
+      source_image = np.zeros((12,12,3))
+      dest_image = fp.transform_image(source_image, dest_image_shape=(100,200))
+
+      assert dest_image.shape[0] == 100
+      assert dest_image.shape[1] == 200
 
     def test_scaling(self):
       # Scale by factor of 2 on x, factor of 4 on y

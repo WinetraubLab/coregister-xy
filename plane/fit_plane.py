@@ -5,8 +5,7 @@ class FitPlane:
     
     """ Begin constractor methods """
     def __init__(self, M=None):
-        self.M = M
- 
+        self.M = M # Transformation from source image to dest image coordinates
     
     @classmethod
     def from_fitting_points_between_fluorescence_image_and_template(cls, 
@@ -40,7 +39,6 @@ class FitPlane:
         # Solve least squared equation
         M = np.linalg.solve(A,B)
         return cls(M)
-
     
     def transform_point(self, source_point):
         """
@@ -55,16 +53,27 @@ class FitPlane:
 
         return np.array([x_new, y_new])
     
-    def transform_image(self, source_image):
+    def transform_image(self, source_image, dest_image_shape=None):
         """
         Transform an image. 
         Inputs:
             source_image: An OpenCV image to be transformed.
+            dest_image_shape: touple of image size (pixels) of the dest image.
+                If set to None, will match source_image shape.
         """
-        y_range, x_range,_ = source_image.shape
-        new_image = np.zeros_like(source_image)
 
-        # Mask to track pixels that need interpolation 
+        # Figure out what is the dest image size
+        if dest_image_shape is None:
+            dest_image_shape = source_image.shape
+        elif len(dest_image_shape) < len(source_image.shape):
+            # User didn't define color channel in the dest image size vector
+            dest_image_shape = dest_image_shape + (source_image.shape[2],)
+
+        # Defien the dest image
+        dest_image = np.zeros(dest_image_shape, dtype=source_image.dtype)
+
+        # Mask to track pixels that need interpolation
+        y_range, x_range, _ = source_image.shape
         mask = np.ones((y_range, x_range), dtype=bool)
 
         # Direct mapping
@@ -74,20 +83,18 @@ class FitPlane:
                 x_new = round(x_new)
                 y_new = round(y_new)
                 if 0 <= y_new < y_range and 0 <= x_new < x_range:
-                    new_image[y_new,x_new] = source_image[y_i, x_i]
+                    dest_image[y_new,x_new] = source_image[y_i, x_i]
                     mask[y_new, x_new] = False
-
-        print(np.any(mask))
 
         # Interpolate unassigned pixels
         while np.any(mask):
             for y_i in range(y_range):
                 for x_i in range(x_range):
                     if mask[y_i, x_i]:
-                        new_image[y_i, x_i] = self.bilinear_interpolate_pixel(new_image, y_i, x_i)
+                        dest_image[y_i, x_i] = self.bilinear_interpolate_pixel(dest_image, y_i, x_i)
                         mask[y_i, x_i] = False
 
-        return new_image
+        return dest_image
 
     def bilinear_interpolate_pixel(self, img, x, y):
         # Bilinear interpolation to remove missing black "gaps" in transformed image
