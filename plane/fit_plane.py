@@ -65,7 +65,7 @@ class FitPlane:
         new_image = np.zeros_like(source_image)
 
         # Mask to track pixels that need interpolation 
-        mask = np.zeros((y_range, x_range), dtype=bool)
+        mask = np.ones((y_range, x_range), dtype=bool)
 
         # Direct mapping
         for x_i in range(x_range):
@@ -75,13 +75,17 @@ class FitPlane:
                 y_new = round(y_new)
                 if 0 <= y_new < y_range and 0 <= x_new < x_range:
                     new_image[y_new,x_new] = source_image[y_i, x_i]
-                    mask[y_new, x_new] = True
+                    mask[y_new, x_new] = False
+
+        print(np.any(mask))
 
         # Interpolate unassigned pixels
-        for y_i in range(y_range):
-            for x_i in range(x_range):
-                if not mask[y_i, x_i]:
-                    new_image[y_i, x_i] = self.bilinear_interpolate_pixel(new_image, y_i, x_i)
+        while np.any(mask):
+            for y_i in range(y_range):
+                for x_i in range(x_range):
+                    if mask[y_i, x_i]:
+                        new_image[y_i, x_i] = self.bilinear_interpolate_pixel(new_image, y_i, x_i)
+                        mask[y_i, x_i] = False
 
         return new_image
 
