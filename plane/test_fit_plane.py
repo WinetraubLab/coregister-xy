@@ -156,32 +156,32 @@ class TestFitPlane(unittest.TestCase):
 
       # Load test images and transform source
       source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
-      target_image = cv.cvtColor(cv.imread("plane/test_vectors/target.jpg"), cv.COLOR_BGR2RGB)
+      dest_image = cv.cvtColor(cv.imread("plane/test_vectors/dest.jpg"), cv.COLOR_BGR2RGB)
       transformed_image = fp.transform_image(source_image)
 
       # Display results to user
       fig,ax=plt.subplots(1,3)
       ax[0].imshow(source_image)
       ax[1].imshow(transformed_image)
-      ax[2].imshow(target_image)
+      ax[2].imshow(dest_image)
       ax[0].set_title("Source")
       ax[1].set_title("Transformed")
-      ax[2].set_title("Target")
+      ax[2].set_title("Dest")
       ax[0].scatter(source_image_points[:,0], source_image_points[:,1])
       ax[1].scatter(transformed_points[:,0], transformed_points[:,1])
       ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_anchor_points_image.png")
 
-    def test_resize_target_image_and_points(self):
+    def test_resize_dest_image_and_points(self):
       """
-      Test to align images of different scales. Source should be a small image, and target should be larger. Target will be resized.
+      Test to align images of different scales. Source should be a small image, and dest should be larger. dest will be resized.
       """
       source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
-      target_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
+      dest_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
 
       dest_image_points = np.array([[p[0]*2,p[1]*2] for p in self.source_image_points])
 
-      target_image, dest_image_points = self._resize_target(source_image, target_image, dest_image_points)
+      dest_image, dest_image_points = self._resize_dest(source_image, dest_image, dest_image_points)
 
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
       transformed_image = fp.transform_image(source_image)
@@ -195,48 +195,48 @@ class TestFitPlane(unittest.TestCase):
       fig,ax=plt.subplots(1,3)
       ax[0].imshow(source_image)
       ax[1].imshow(transformed_image)
-      ax[2].imshow(target_image)
+      ax[2].imshow(dest_image)
       ax[0].set_title("Source")
       ax[1].set_title("Transformed")
-      ax[2].set_title("Target")
+      ax[2].set_title("Dest")
       ax[0].scatter(self.source_image_points[:,0], self.source_image_points[:,1])
       ax[1].scatter(transformed_points[:,0], transformed_points[:,1])
       ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_scaling_up_image.png")
 
-      assert transformed_image.shape == target_image.shape
+      assert transformed_image.shape == dest_image.shape
 
-    def _resize_target(self, source_image, target_image, dest_points=None):
-      # Resize target image to be similar dimensions to source image, keeping proportions
+    def _resize_dest(self, source_image, dest_image, dest_points=None):
+      # Resize dest image to be similar dimensions to source image, keeping proportions
       source_y, source_x, _ = source_image.shape
-      target_y, target_x, _ = target_image.shape
-      original_y, original_x = target_y, target_x
-      target_ratio = target_x/target_y
+      dest_y, dest_x, _ = dest_image.shape
+      original_y, original_x = dest_y, dest_x
+      dest_ratio = dest_x/dest_y
 
-      if target_y > source_y:
-        target_image = cv.resize(target_image, (int(source_y), int(target_ratio * source_y)))
-        target_y, target_x, _ = target_image.shape
-      if target_x > source_x:
-        target_image = cv.resize(target_image, (int(1/target_ratio * source_x), int(source_x)))
-        target_y, target_x, _ = target_image.shape
+      if dest_y > source_y:
+        dest_image = cv.resize(dest_image, (int(source_y), int(dest_ratio * source_y)))
+        dest_y, dest_x, _ = dest_image.shape
+      if dest_x > source_x:
+        dest_image = cv.resize(dest_image, (int(1/dest_ratio * source_x), int(source_x)))
+        dest_y, dest_x, _ = dest_image.shape
 
       if np.any(dest_points):
         # Find factor of size reduction
-        scaling_factor_y = target_y / original_y
-        scaling_factor_x = target_x / original_x
+        scaling_factor_y = dest_y / original_y
+        scaling_factor_x = dest_x / original_x
         assert abs(scaling_factor_y - scaling_factor_x) < 0.01
 
-        # Rescale dest_points to new positions within target image
+        # Rescale dest_points to new positions within dest image
         dest_points = np.array([[round(p[0] * scaling_factor_y), round(p[1] * scaling_factor_x)] for p in dest_points])
 
-      return target_image, dest_points
+      return dest_image, dest_points
     
-    def test_resize_target(self):
+    def test_resize_dest(self):
       source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
-      target_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
-      target_image, _ = self._resize_target(source_image, target_image)
-      self.assertAlmostEqual(source_image.shape[0], target_image.shape[0])
-      self.assertAlmostEqual(source_image.shape[1], target_image.shape[1])
+      dest_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
+      dest_image, _ = self._resize_dest(source_image, dest_image)
+      self.assertAlmostEqual(source_image.shape[0], dest_image.shape[0])
+      self.assertAlmostEqual(source_image.shape[1], dest_image.shape[1])
 
 
 if __name__ == '__main__':
