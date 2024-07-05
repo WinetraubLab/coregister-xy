@@ -5,8 +5,9 @@ import cv2 as cv
 class FitPlane:
     
     """ Begin constractor methods """
-    def __init__(self, M=None):
+    def __init__(self, M=None, M_rev=None):
         self.M = M # Transformation from source image to dest image coordinates
+        self.M_rev = M_rev # Reverse transformation
     
     @classmethod
     def from_fitting_points_between_fluorescence_image_and_template(cls, 
@@ -23,31 +24,41 @@ class FitPlane:
         source_image_points = np.array(source_image_points, dtype=np.float32)
         dest_image_points = np.array(dest_image_points, dtype=np.float32)
         assert source_image_points.shape == dest_image_points.shape, "Number of points must match"
+        assert source_image_points.shape[0] >= 6, "Must have at least 6 points"
 
-        # Create least squared matrix equations for quadratic transformation
-        A = []
-        B = []
-        for i in range(6):
-            x_dest, y_dest = dest_image_points[i]
-            x, y = source_image_points[i]
-            A.append([x**2,y**2,x*y,x,y,1])
-            B.append([x_dest, y_dest])
-        B = np.array(B)
-        A = np.array(A, dtype=np.float32)
-        assert B.shape == (6,2), "Shape of matrix B incorrect"
-        assert A.shape == (6,6), "Shape of matrix A incorrect"
+        def create_map(source_image_points, dest_image_points):
+            # Create least squared matrix equations for quadratic transformation
+            A = []
+            B = []
+            for i in range(6):
+                x_dest, y_dest = dest_image_points[i]
+                x, y = source_image_points[i]
+                A.append([x**2,y**2,x*y,x,y,1])
+                B.append([x_dest, y_dest])
+            B = np.array(B)
+            A = np.array(A, dtype=np.float32)
+            assert B.shape == (6,2), "Shape of matrix B incorrect"
+            assert A.shape == (6,6), "Shape of matrix A incorrect"
 
-        # Solve least squared equation
-        M = np.linalg.solve(A,B)
-        return cls(M)
+            # Solve least squared equation
+            M, residuals, rank, s = np.linalg.lstsq(A,B)
+            return M
     
-    def transform_point(self, source_point):
+        return cls(
+            M = create_map(source_image_points, dest_image_points),
+            M_rev = create_map(dest_image_points, source_image_points)
+        )
+    
+    def transform_point(self, source_point, reverse=False):
         """
         This function transforms a source point to destination point.
         Inputs: 
             source_points: pixel locations of a point as an array [x,y]
         """
-        M = self.M
+        if reverse:
+            M = self.M_rev
+        else:
+            M = self.M
         x,y = source_point
         x_new = M[0,0]*x**2 + M[1,0]*y**2 + M[2,0]*x*y + M[3,0]*x + M[4,0]*y + M[5,0]
         y_new = M[0,1]*x**2 + M[1,1]*y**2 + M[2,1]*x*y + M[3,1]*x + M[4,1]*y + M[5,1]
@@ -69,18 +80,16 @@ class FitPlane:
         elif len(dest_image_shape) < len(source_image.shape):
             # User didn't define color channel in the dest image size vector
             dest_image_shape = dest_image_shape + (source_image.shape[2],)
+        
+        # Find reverse mapping 
+        transformed_coords = -np.ones((dest_image_shape[0], dest_image_shape[1],2), dtype=np.float32)
+        y_dest_range, x_dest_range, _ = dest_image_shape
+        for x_i in range(x_dest_range):
+            for y_i in range(y_dest_range):
+                x_source, y_source = self.transform_point([x_i, y_i], True)
+                if 0 <= y_i < source_image.shape[0] and 0 <= x_i < source_image.shape[1]:
+                    transformed_coords[y_i, x_i] = [x_source, y_source]
 
-        # Apply transformation
-        transformed_coords = -np.ones((dest_image_shape[0], dest_image_shape[1],2), dtype=source_image.dtype)
-        y_range, x_range, _ = source_image.shape
-        for x_i in range(x_range):
-            for y_i in range(y_range):
-                x_new, y_new = self.transform_point([x_i,y_i])
-                x_new = round(x_new)
-                y_new = round(y_new)
-                if 0 <= y_new < dest_image_shape[0] and 0 <= x_new < dest_image_shape[1]:
-                    transformed_coords[y_new,x_new] = [x_i, y_i]
-        transformed_coords = transformed_coords.astype(np.int16)
         dest_image = cv.remap(source_image, transformed_coords, None, interpolation=cv.INTER_LINEAR)
         return dest_image
 
