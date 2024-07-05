@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import cv2 as cv
 
 class FitPlane:
     
@@ -69,31 +70,18 @@ class FitPlane:
             # User didn't define color channel in the dest image size vector
             dest_image_shape = dest_image_shape + (source_image.shape[2],)
 
-        # Defien the dest image
-        dest_image = np.zeros(dest_image_shape, dtype=source_image.dtype)
-
-        # Mask to track pixels that need interpolation
+        # Apply transformation
+        transformed_coords = -np.ones((dest_image_shape[0], dest_image_shape[1],2), dtype=source_image.dtype)
         y_range, x_range, _ = source_image.shape
-        mask = np.ones((y_range, x_range), dtype=bool)
-
-        # Direct mapping
         for x_i in range(x_range):
             for y_i in range(y_range):
                 x_new, y_new = self.transform_point([x_i,y_i])
                 x_new = round(x_new)
                 y_new = round(y_new)
-                if 0 <= y_new < y_range and 0 <= x_new < x_range:
-                    dest_image[y_new,x_new] = source_image[y_i, x_i]
-                    mask[y_new, x_new] = False
-
-        # Interpolate unassigned pixels
-        while np.any(mask):
-            for y_i in range(y_range):
-                for x_i in range(x_range):
-                    if mask[y_i, x_i]:
-                        dest_image[y_i, x_i] = self.bilinear_interpolate_pixel(dest_image, y_i, x_i)
-                        mask[y_i, x_i] = False
-
+                if 0 <= y_new < dest_image_shape[0] and 0 <= x_new < dest_image_shape[1]:
+                    transformed_coords[y_new,x_new] = [x_i, y_i]
+        transformed_coords = transformed_coords.astype(np.int16)
+        dest_image = cv.remap(source_image, transformed_coords, None, interpolation=cv.INTER_LINEAR)
         return dest_image
 
     def bilinear_interpolate_pixel(self, img, x, y):

@@ -27,6 +27,23 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result2[0], 11)
       self.assertAlmostEqual(result2[1], 5)
 
+    def test_translation_on_image(self):
+      # Test how well image is transformed using a translation transformation
+      dest_image_points = np.array([[p[0]+1,p[1]+2] for p in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      # Create a dummy image and transform it
+      source_image = np.zeros((4,6,3))
+      source_image[0,0] =  (1,0,0) # Point at the origin (red)
+      source_image[2,1] = (0,1,0) # Point  (green)
+      source_image[0,3] = (0,0,1) # Point  (blue)
+      dest_image = fp.transform_image(source_image)
+
+      # Test the image at the destimation, are pixel values make sense?
+      self.assertAlmostEqual(dest_image[2,1,0], 1) # Red visible
+      self.assertAlmostEqual(dest_image[2,4,2], 1) # Blue visible
+      assert not np.any(dest_image[:,:,1] == 1) # The green point should be out of frame
+
     def _rotate_point(self,x,y,angle):
         # Rotates a point by specified degree angle
         angle_radians = math.radians(angle)
