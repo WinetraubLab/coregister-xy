@@ -27,10 +27,27 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result2[0], 11)
       self.assertAlmostEqual(result2[1], 5)
 
-    def test_translation_on_image(self):
+    def test_translation_on_image_affine(self):
       # Test how well image is transformed using a translation transformation
       dest_image_points = np.array([[p[0]+1,p[1]+2] for p in self.source_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      # Create a dummy image and transform it
+      source_image = np.zeros((4,6,3))
+      source_image[0,0] =  (1,0,0) # Point at the origin (red)
+      source_image[2,1] = (0,1,0) # Point  (green)
+      source_image[0,3] = (0,0,1) # Point  (blue)
+      dest_image = fp.transform_image(source_image)
+
+      # Test the image at the destimation, are pixel values make sense?
+      self.assertAlmostEqual(dest_image[2,1,0], 1) # Red visible
+      self.assertAlmostEqual(dest_image[2,4,2], 1) # Blue visible
+      assert not np.any(dest_image[:,:,1] == 1) # The green point should be out of frame
+    
+    def test_translation_on_image_quadratic(self):
+      # Test how well image is transformed using a translation transformation
+      dest_image_points = np.array([[p[0]+1,p[1]+2] for p in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points, order=2)
 
       # Create a dummy image and transform it
       source_image = np.zeros((4,6,3))
@@ -67,7 +84,7 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result2[0], 0)
       self.assertAlmostEqual(result2[1], 1)
 
-    def test_rotation_45(self):
+    def test_rotation_45_affine(self):
       # Create array of rotated points
       dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
@@ -81,10 +98,24 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(result2[0], 1/math.sqrt(2))
       self.assertAlmostEqual(result2[1], 1/math.sqrt(2))
 
+    def test_rotation_45_quadratic(self):
+      # Create array of rotated points
+      dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points, 2)
+
+      # Apply the transformation on the source points
+      result1 = fp.transform_point([0,1])
+      result2 = fp.transform_point([1,0]) 
+
+      self.assertAlmostEqual(result1[0], -1 * 1/math.sqrt(2))
+      self.assertAlmostEqual(result1[1], 1/math.sqrt(2))
+      self.assertAlmostEqual(result2[0], 1/math.sqrt(2))
+      self.assertAlmostEqual(result2[1], 1/math.sqrt(2))
+
     def test_rotation_45_and_image(self):
       # Create array of rotated points
       dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
-      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points, 2)
 
       # Create a dummy image and transofrm it
       source_image = np.zeros((100,100,3))
@@ -103,11 +134,29 @@ class TestFitPlane(unittest.TestCase):
       ax[1].invert_yaxis()
       fig.savefig("test_rotation_45.png")
 
-    def test_transform_image_rotation_translation(self):
+    def test_transform_image_rotation_translation_affine(self):
       # Test how well image is transformed using a rotation and translation transformation
       rotated_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
       dest_image_points = np.array([[p[0]+2,p[1]+4] for p in rotated_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+
+      # Create a dummy image and transofrm it
+      source_image = np.zeros((12,12,3))
+      source_image[0,0] =  (1,0,0) # Point at the origin (red)
+      source_image[10,0] = (0,1,0) # Point along the Y axis (green)
+      source_image[0,10] = (0,0,1) # Point along the X axis (blue)
+      dest_image = fp.transform_image(source_image)
+
+      # Test the image at the destimation, are pixel values make sense?
+      self.assertAlmostEqual(dest_image[4,2,0], 1) # Point at the origin (red) should have experienced translation only
+      self.assertAlmostEqual(dest_image[7+4,7+2,2], 1, places=0) # Pont along the X axis (blue) should have translated and rotated
+      assert not np.any(dest_image[:,:,1] == 1) # Point along the Y axis (green) should have moved out of view
+
+    def test_transform_image_rotation_translation_quadratic(self):
+      # Test how well image is transformed using a rotation and translation transformation
+      rotated_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
+      dest_image_points = np.array([[p[0]+2,p[1]+4] for p in rotated_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points,2)
 
       # Create a dummy image and transofrm it
       source_image = np.zeros((12,12,3))
@@ -152,7 +201,7 @@ class TestFitPlane(unittest.TestCase):
       # Build a random transformation
       source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
       dest_image_points = np.array([[25,65], [16,13], [70,15], [22,18], [32,46], [40,38]])
-      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points)
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points,2)
 
       results = []
       for point in source_image_points:
@@ -166,7 +215,7 @@ class TestFitPlane(unittest.TestCase):
       # Test combination of translation, rotation, scaling. Define transofrmation
       source_image_points = [[85,22], [68,43], [88,75], [114,111], [113,166], [76,143]]
       dest_image_points = [[55,142], [71,156], [99,142], [127,123], [170,127], [150,154]]
-      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points)
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points,2)
 
       # Assert that the source_image_points map to dest_image_points 
       transformed_points = []
@@ -200,6 +249,7 @@ class TestFitPlane(unittest.TestCase):
       fig.savefig("test_anchor_points_image.png")
 
     def _resize_dest(self, source_image, dest_image, dest_points=None):
+      # TODO obsolete- resize source NOT dest
       # Resize dest image to be similar dimensions to source image, keeping proportions
       source_y, source_x, _ = source_image.shape
       dest_y, dest_x, _ = dest_image.shape
@@ -223,13 +273,6 @@ class TestFitPlane(unittest.TestCase):
         dest_points = np.array([[round(p[0] * scaling_factor_y), round(p[1] * scaling_factor_x)] for p in dest_points])
 
       return dest_image, dest_points
-    
-    def test_resize_dest(self):
-      source_image = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
-      dest_image = cv.resize(source_image, (source_image.shape[0]*2,source_image.shape[1]*2))
-      dest_image, _ = self._resize_dest(source_image, dest_image)
-      self.assertAlmostEqual(source_image.shape[0], dest_image.shape[0])
-      self.assertAlmostEqual(source_image.shape[1], dest_image.shape[1])
 
 
 if __name__ == '__main__':
