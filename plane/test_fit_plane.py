@@ -269,8 +269,8 @@ class TestFitPlane(unittest.TestCase):
       fig.savefig("test_anchor_points_image.png")
     
     def test_scale_source(self):
-      small_source = cv.imread("plane/test_vectors/source.jpg", cv.COLOR_BGR2RGB)
-      large_dest = cv.imread("plane/test_vectors/large.jpg", cv.COLOR_BGR2RGB)
+      small_source = cv.cvtColor(cv.imread("plane/test_vectors/source.jpg"), cv.COLOR_BGR2RGB)
+      large_dest = cv.cvtColor(cv.imread("plane/test_vectors/large.jpg"), cv.COLOR_BGR2RGB)
 
       dest_image_points = np.array([[p[0]*2.5,p[1]*2.5] for p in self.source_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
