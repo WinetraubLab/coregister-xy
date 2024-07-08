@@ -210,6 +210,26 @@ class TestFitPlane(unittest.TestCase):
       for i in range(len(dest_image_points)):
         for j in range(0,2):
           self.assertAlmostEqual(results[i][j], dest_image_points[i][j], places=3)    
+    
+    def test_reverse_transformation(self):
+      # Build a random transformation
+      source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
+      dest_image_points = np.array([[25,65], [16,13], [70,15], [22,18], [32,46], [40,38]])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points,2)
+
+      transformed = []
+      for point in source_image_points:
+        transformed.append(fp.transform_point(point))
+      
+      # Use M_rev to reverse transform the points
+      cycle = []
+      for point in transformed:
+        cycle.append(fp.transform_point(point, True))
+
+      # Check that the points are back to their starting position
+      for p in range(0, len(source_image_points)):
+        for i in range(2):
+          self.assertAlmostEqual(cycle[p][i], source_image_points[p][i], places=3)
 
     def test_anchor_point_mapping_and_image(self):
       # Test combination of translation, rotation, scaling. Define transofrmation
