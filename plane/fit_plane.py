@@ -101,27 +101,9 @@ class FitPlane:
         for x_i in range(x_dest_range):
             for y_i in range(y_dest_range):
                 x_source, y_source = self.transform_point([x_i, y_i], True)
-                if 0 <= y_i < source_image.shape[0] and 0 <= x_i < source_image.shape[1]:
+                if 0 <= round(y_source) < source_image.shape[0] and 0 <= round(x_source) < source_image.shape[1]:
                     transformed_coords[y_i, x_i] = [x_source, y_source]
 
         dest_image = cv.remap(source_image, transformed_coords, None, interpolation=cv.INTER_LINEAR)
         return dest_image
-
-    def bilinear_interpolate_pixel(self, img, x, y):
-        # Bilinear interpolation to remove missing black "gaps" in transformed image
-        x0 = int(np.floor(x))
-        x1 = min(x0 + 1, img.shape[1] - 1)
-        y0 = int(np.floor(y))
-        y1 = min(y0 + 1, img.shape[0] - 1)
-
-        Ia = img[y0, x0]
-        Ib = img[y1, x0]
-        Ic = img[y0, x1]
-        Id = img[y1, x1]
-
-        wa = (x1 - x) * (y1 - y)
-        wb = (x1 - x) * (y - y0)
-        wc = (x - x0) * (y1 - y)
-        wd = (x - x0) * (y - y0)
-
-        return wa * Ia + wb * Ib + wc * Ic + wd * Id
+    

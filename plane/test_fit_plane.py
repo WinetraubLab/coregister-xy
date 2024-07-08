@@ -39,7 +39,7 @@ class TestFitPlane(unittest.TestCase):
       source_image[0,3] = (0,0,1) # Point  (blue)
       dest_image = fp.transform_image(source_image)
 
-      # Test the image at the destimation, are pixel values make sense?
+      # Test the image at the destination, are pixel values make sense?
       self.assertAlmostEqual(dest_image[2,1,0], 1) # Red visible
       self.assertAlmostEqual(dest_image[2,4,2], 1) # Blue visible
       assert not np.any(dest_image[:,:,1] == 1) # The green point should be out of frame
@@ -267,33 +267,27 @@ class TestFitPlane(unittest.TestCase):
       ax[1].scatter(transformed_points[:,0], transformed_points[:,1])
       ax[2].scatter(dest_image_points[:,0],dest_image_points[:,1])
       fig.savefig("test_anchor_points_image.png")
+    
+    def test_scale_source(self):
+      small_source = cv.imread("plane/test_vectors/source.jpg", cv.COLOR_BGR2RGB)
+      large_dest = cv.imread("plane/test_vectors/large.jpg", cv.COLOR_BGR2RGB)
 
-    def _resize_dest(self, source_image, dest_image, dest_points=None):
-      # TODO obsolete- resize source NOT dest
-      # Resize dest image to be similar dimensions to source image, keeping proportions
-      source_y, source_x, _ = source_image.shape
-      dest_y, dest_x, _ = dest_image.shape
-      original_y, original_x = dest_y, dest_x
-      dest_ratio = dest_x/dest_y
+      dest_image_points = np.array([[p[0]*2.5,p[1]*2.5] for p in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
 
-      if dest_y > source_y:
-        dest_image = cv.resize(dest_image, (int(source_y), int(dest_ratio * source_y)))
-        dest_y, dest_x, _ = dest_image.shape
-      if dest_x > source_x:
-        dest_image = cv.resize(dest_image, (int(1/dest_ratio * source_x), int(source_x)))
-        dest_y, dest_x, _ = dest_image.shape
+      transformed = fp.transform_image(small_source, large_dest.shape)
 
-      if np.any(dest_points):
-        # Find factor of size reduction
-        scaling_factor_y = dest_y / original_y
-        scaling_factor_x = dest_x / original_x
-        assert abs(scaling_factor_y - scaling_factor_x) < 0.01
+      assert transformed.shape == large_dest.shape
 
-        # Rescale dest_points to new positions within dest image
-        dest_points = np.array([[round(p[0] * scaling_factor_y), round(p[1] * scaling_factor_x)] for p in dest_points])
-
-      return dest_image, dest_points
-
+      # Display results to user
+      fig,ax=plt.subplots(1,3)
+      ax[0].imshow(small_source)
+      ax[1].imshow(transformed)
+      ax[2].imshow(large_dest)
+      ax[0].set_title("Source")
+      ax[1].set_title("Transformed")
+      ax[2].set_title("Dest")
+      fig.savefig("test_scale_source.png")
 
 if __name__ == '__main__':
   unittest.main()
