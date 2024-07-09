@@ -16,12 +16,20 @@ end
 %% Bulk of the pattern
 % Pattern to photobleach. System will photobleach n lines from 
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
+
+% Right
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(200e-3, 0, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+
+% Left
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-200e-3, 0, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+
+% Down
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 200e-3, true);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+
+% Top
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -200e-3, true);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
