@@ -16,22 +16,22 @@ end
 %% Bulk of the pattern
 % Pattern to photobleach. System will photobleach n lines from 
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(180e-3, 0, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(200e-3, 0, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-180e-3, 0, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-200e-3, 0, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 180e-3, true);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 200e-3, true);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -180e-3, true);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -200e-3, true);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 %% Alignment markers (L shape)
 nGridLines = 0;
 
-x_start_mm = [x_start_mm [-0.15 -0.15 -0.15 0.1  0.16]];
-x_end_mm =   [x_end_mm   [-0.15 -0.15 -0.1  0.13 0.19]];
-y_start_mm = [y_start_mm [-0.15  0.1   0.15 0.15 0.15]];
-y_end_mm =   [y_end_mm   [-0.1   0.15  0.15 0.15 0.15]];
+x_start_mm = [x_start_mm [-0.20 -0.20 -0.20 0.15 0.20]];
+x_end_mm =   [x_end_mm   [-0.20 -0.20 -0.18 0.18 0.23]];
+y_start_mm = [y_start_mm [-0.20  0.15  0.20 0.20 0.20]];
+y_end_mm =   [y_end_mm   [-0.15  0.20  0.20 0.20 0.20]];
 nGridLines = nGridLines + 5;
 
 
@@ -96,7 +96,7 @@ end
 %% Small Pattern
 function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern(offset_x_mm, offset_y_mm, isflip)
 scale1 = 100e-3; %mm
-scale2 = 170e-3;
+scale2 = 220e-3;
 xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*scale1 + 10e-3 -scale1/2;
 xp_end_mm   = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,  3]/3*scale1 - 10e-3 -scale1/2;
 yp_start_mm = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
