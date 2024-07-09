@@ -18,19 +18,19 @@ end
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
 
 % Right
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(200e-3, 0, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(200e-3, 0, false, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Left
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-200e-3, 0, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-200e-3, 0, false, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Down
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 200e-3, true);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 200e-3, true, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Top
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -200e-3, true);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -200e-3, true, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 %% Alignment markers (L shape)
@@ -102,7 +102,8 @@ end
 end
 
 %% Small Pattern
-function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern(offset_x_mm, offset_y_mm, isflip)
+function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern( ...
+    offset_x_mm, offset_y_mm, is_flip_xy, is_flip_z)
 scale1 = 100e-3; %mm
 scale2 = 220e-3;
 xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*scale1 + 10e-3 -scale1/2;
@@ -111,7 +112,11 @@ yp_start_mm = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
 yp_end_mm   = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
 z_mm        = [0,1,2,5,4,3,6,7,8,11,10,9]*20e-3;
 
-if ~isflip
+if is_flip_z
+    z_mm = z_mm(end:-1:1);
+end
+
+if ~is_flip_xy
     x_start_mm = xp_start_mm + offset_x_mm;
     x_end_mm =   xp_end_mm   + offset_x_mm;
     y_start_mm = yp_start_mm + offset_y_mm;
