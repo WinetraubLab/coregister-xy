@@ -8,7 +8,7 @@
 % When set to true the stage will not move and we will not
 % photobleach. Use "true" when you would like to see the output without
 % physcaily running the test.
-skipHardware = true;
+skipHardware = false;
 
 % OCT probe
 octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
