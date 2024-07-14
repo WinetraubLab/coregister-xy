@@ -289,5 +289,25 @@ class TestFitPlane(unittest.TestCase):
       ax[2].set_title("Dest")
       fig.savefig("test_scale_source.png")
 
+    def test_adding_points_changes_transform(self):
+      # Build a random transformation by picking random points
+      source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
+      dest_image_points = np.array([[25,65], [16,14], [70,14], [22,15], [32,49], [40,28]])
+
+      # Using sub-set of points, build a plane fit 
+      fp3 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:3], dest_image_points[0:3])
+      fp4 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:4], dest_image_points[0:4])
+      fp5 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:5], dest_image_points[0:5])      
+      fp6 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:6], dest_image_points[0:6])      
+
+      # Because all the points are chosen in random, we expect the different fits to have different plane parameters.
+      tolerance=1e-5
+      assert not np.allclose(fp3.M, fp4.M, atol=tolerance)
+      assert not np.allclose(fp3.M, fp5.M, atol=tolerance)
+      assert not np.allclose(fp3.M, fp6.M, atol=tolerance)
+      assert not np.allclose(fp4.M, fp5.M, atol=tolerance)
+      assert not np.allclose(fp4.M, fp6.M, atol=tolerance)
+      assert not np.allclose(fp5.M, fp6.M, atol=tolerance)
+
 if __name__ == '__main__':
   unittest.main()
