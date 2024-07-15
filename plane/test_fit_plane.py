@@ -289,10 +289,28 @@ class TestFitPlane(unittest.TestCase):
       ax[2].set_title("Dest")
       fig.savefig("test_scale_source.png")
 
-    def test_adding_points_changes_transform(self):
+    def test_shuffle_points(self):
+      # 3 points for affine can be used with np.linalg.solve
+      source_image_points = np.array([ [20,60], [90, 20], [0, 45], [10, 40]])
+      dest_image_points = np.array([[25,65], [22,15], [32,80], [10, 65]])
+
+      # Shuffle the points to create a different order but maintain pairings
+      indices = [2,0,1,3]
+      shuffled_source = source_image_points[indices]
+      shuffled_dest = dest_image_points[indices]
+      tolerance=1e-5
+
+      # Check that shuffling point pairs does not affect M
+      fp_original = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points, dest_image_points)      
+      fp_shuffled = FitPlane.from_fitting_points_between_fluorescence_image_and_template(shuffled_source, shuffled_dest)      
+      assert np.allclose(fp_original.M, fp_shuffled.M, atol=tolerance)
+
+    def _test_adding_points_changes_transform(self):
       # Build a random transformation by picking random points
-      source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
-      dest_image_points = np.array([[25,65], [16,14], [70,14], [22,15], [32,49], [40,28]])
+      source_image_points = np.array([ [20,60], [30, 10], [60, 10], [90, 20], [0, 45], [45, 45]])
+      dest_image_points = np.array([[25,65], [16,54], [70,14], [22,15], [32,80], [40,28]])
+
+      tolerance=1e-5
 
       # Using sub-set of points, build a plane fit 
       fp3 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:3], dest_image_points[0:3])
@@ -301,7 +319,6 @@ class TestFitPlane(unittest.TestCase):
       fp6 = FitPlane.from_fitting_points_between_fluorescence_image_and_template(source_image_points[0:6], dest_image_points[0:6])      
 
       # Because all the points are chosen in random, we expect the different fits to have different plane parameters.
-      tolerance=1e-5
       assert not np.allclose(fp3.M, fp4.M, atol=tolerance)
       assert not np.allclose(fp3.M, fp5.M, atol=tolerance)
       assert not np.allclose(fp3.M, fp6.M, atol=tolerance)

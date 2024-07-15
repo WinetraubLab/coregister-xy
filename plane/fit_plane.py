@@ -50,7 +50,8 @@ class FitPlane:
             assert A.shape == (order*3, order*3), "Shape of matrix A incorrect"
 
             # Solve least squared equation
-            M, residuals, rank, s = np.linalg.lstsq(A,B, rcond=-1)
+            # M = np.linalg.solve(A,B)
+            M, residuals, rank, s = np.linalg.lstsq(A,B, rcond=None)
             return M
     
         return cls(
