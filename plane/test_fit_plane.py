@@ -291,11 +291,11 @@ class TestFitPlane(unittest.TestCase):
 
     def test_shuffle_points(self):
       # 3 points for affine can be used with np.linalg.solve
-      source_image_points = np.array([ [20,60], [90, 20], [0, 45], [10, 40]])
-      dest_image_points = np.array([[25,65], [22,15], [32,80], [10, 65]])
+      source_image_points = np.array([ [20,60], [90, 20], [0, 45]])
+      dest_image_points = np.array([[25,65], [22,15], [32,80]])
 
       # Shuffle the points to create a different order but maintain pairings
-      indices = [2,0,1,3]
+      indices = np.random.permutation(source_image_points.shape[0])
       shuffled_source = source_image_points[indices]
       shuffled_dest = dest_image_points[indices]
       tolerance=1e-5
@@ -305,9 +305,32 @@ class TestFitPlane(unittest.TestCase):
       fp_shuffled = FitPlane.from_fitting_points_between_fluorescence_image_and_template(shuffled_source, shuffled_dest)      
       assert np.allclose(fp_original.M, fp_shuffled.M, atol=tolerance)
 
-    def _test_adding_points_changes_transform(self):
+    def test_adding_points_changes_transform_with_shuffling(self):
       # Build a random transformation by picking random points
-      source_image_points = np.array([ [20,60], [30, 10], [60, 10], [90, 20], [0, 45], [45, 45]])
+      source_image_points = np.array([[20,60], [30, 10], [60, 10], [90, 20], [0, 45], [45, 45]])
+      dest_image_points = np.array([[25,65], [16,54], [70,14], [22,15], [32,80], [40,28]])
+
+      # Using sub-set of points, build a plane fit with shuffling every time
+      M_list = []
+      used_first_3 = []
+      for i in range(3,7):
+        indices = np.random.permutation(i)
+        # Prevent repeats that may throw other errors
+        while np.array_equal(indices[:3], used_first_3):
+          indices = np.random.permutation(i)
+        used_first_3.append(indices[:3])
+        shuffled_source = source_image_points[indices][0:i]
+        shuffled_dest = dest_image_points[indices][0:i]
+        M_list.append(FitPlane.from_fitting_points_between_fluorescence_image_and_template(shuffled_source, shuffled_dest).M)
+      
+      # Because all the points are chosen in random AND shuffled, we expect the different fits to have different plane parameters.
+      tolerance=1e-5
+      for i in range(0, len(M_list)-1):
+        assert not np.allclose(M_list[i], M_list[i+1], atol=tolerance)
+
+    def test_adding_points_changes_transform(self):
+      # Build a random transformation by picking random points
+      source_image_points = np.array([[20,60], [30, 10], [60, 10], [90, 20], [0, 45], [45, 45]])
       dest_image_points = np.array([[25,65], [16,54], [70,14], [22,15], [32,80], [40,28]])
 
       tolerance=1e-5
