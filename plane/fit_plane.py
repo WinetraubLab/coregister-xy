@@ -21,8 +21,8 @@ class FitPlane:
             dest_image_points: pixel location of points of interest as an array or numpy array [[x0,y0],[x1,y1],...]
             order: 1 for affine, 2 for quadratic.
         """
-        # Type conversion
-
+        
+        # Type conversion and shape test
         source_image_points = np.array(source_image_points, dtype=np.float32)
         dest_image_points = np.array(dest_image_points, dtype=np.float32)
         assert source_image_points.shape == dest_image_points.shape, "Number of points must match"
