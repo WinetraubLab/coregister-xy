@@ -26,16 +26,17 @@ class FitPlane:
         source_image_points = np.array(source_image_points, dtype=np.float32)
         dest_image_points = np.array(dest_image_points, dtype=np.float32)
         assert source_image_points.shape == dest_image_points.shape, "Number of points must match"
+        n_points = source_image_points.shape[0]
         if order == 2:
-            assert source_image_points.shape[0] >= 6, "Must have at least 6 points"
+            assert n_points >= 6, "Quadratic transformation must have at least 6 points"
         elif order == 1:
-            assert source_image_points.shape[0] >= 3, "Must have at least 3 points"
+            assert n_points >= 3, "Linear transformation must have at least 3 points"
 
         def create_map(source_image_points, dest_image_points):
             # Create least squared matrix equations for quadratic transformation
             A = []
             B = []
-            for i in range(order * 3):
+            for i in range(n_points):
                 x_dest, y_dest = dest_image_points[i]
                 x, y = source_image_points[i]
                 if order == 1:
@@ -46,11 +47,10 @@ class FitPlane:
                     B.append([x_dest, y_dest])
             B = np.array(B)
             A = np.array(A, dtype=np.float32)
-            assert B.shape == (order*3,2), "Shape of matrix B incorrect"
-            assert A.shape == (order*3, order*3), "Shape of matrix A incorrect"
+            assert B.shape == (n_points,2), "Shape of matrix B incorrect"
+            assert A.shape == (n_points, order*3), "Shape of matrix A incorrect"
 
             # Solve least squared equation
-            # M = np.linalg.solve(A,B)
             M, residuals, rank, s = np.linalg.lstsq(A,B, rcond=None)
             return M
     
