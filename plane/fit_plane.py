@@ -108,3 +108,18 @@ class FitPlane:
         dest_image = cv.remap(source_image, transformed_coords, None, interpolation=cv.INTER_LINEAR)
         return dest_image
     
+    def compute_physical_params(self, reverse=False):
+        M = np.transpose(self.M)
+        if reverse:
+            M = np.transpose(self.M_rev)
+        
+        a, b, tx = M[0]
+        c, d, ty = M[1]
+
+        translation = (tx, ty)
+        theta_deg = np.degrees(np.arctan2(c,a))
+        scale_x = np.sqrt(a**2 + c**2)
+        scale_y = np.sqrt(b**2 + d**2)
+        shear = (a * b + c * d) / (scale_x * scale_y)
+
+        return translation, theta_deg, scale_x, scale_y, shear

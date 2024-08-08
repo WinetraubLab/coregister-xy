@@ -325,6 +325,17 @@ class TestFitPlane(unittest.TestCase):
       assert not np.allclose(fp4.M, fp5.M, atol=tolerance)
       assert not np.allclose(fp4.M, fp6.M, atol=tolerance)
       assert not np.allclose(fp5.M, fp6.M, atol=tolerance)
+    
+    def test_compute_physical_translate(self):
+      dest_image_points = np.array([[p[0]+1,p[1]+2] for p in self.source_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+      (tx,ty), theta, sx, sy, shear = fp.compute_physical_params()
+      self.assertAlmostEqual(tx, 1)
+      self.assertAlmostEqual(ty, 2)
+      self.assertAlmostEqual(theta, 0)
+      self.assertAlmostEqual(sx, 1)
+      self.assertAlmostEqual(sy, 1)
+      self.assertAlmostEqual(shear, 0)
 
 if __name__ == '__main__':
   unittest.main()
