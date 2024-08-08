@@ -336,6 +336,18 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(sx, 1)
       self.assertAlmostEqual(sy, 1)
       self.assertAlmostEqual(shear, 0)
+    
+    def test_compute_physical_rotate_translate(self):
+      dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
+      dest_image_points = np.array([[p[0]+1,p[1]+2] for p in dest_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+      (tx,ty), theta, sx, sy, shear = fp.compute_physical_params()
+      self.assertAlmostEqual(tx, 1)
+      self.assertAlmostEqual(ty, 2)
+      self.assertAlmostEqual(theta, 45)
+      self.assertAlmostEqual(sx, 1)
+      self.assertAlmostEqual(sy, 1)
+      self.assertAlmostEqual(shear, 0)
 
 if __name__ == '__main__':
   unittest.main()

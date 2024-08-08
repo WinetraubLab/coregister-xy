@@ -109,6 +109,11 @@ class FitPlane:
         return dest_image
     
     def compute_physical_params(self, reverse=False):
+        """
+        Compute physical representation of transform from matrix M.
+        Returns:
+            translation (x,y), rotation, scaling x y, and shear.
+        """
         M = np.transpose(self.M)
         if reverse:
             M = np.transpose(self.M_rev)
@@ -123,3 +128,4 @@ class FitPlane:
         shear = (a * b + c * d) / (scale_x * scale_y)
 
         return translation, theta_deg, scale_x, scale_y, shear
+    
