@@ -42,7 +42,6 @@ for z=z_grid_mm
 
     % Loop over all lines
     for lineI=1:length(x_start_mm)
-        c = ones(size(xx_mm))*(photobleach_intensity+1); % Create canvace 
 
         if y_start_mm(lineI) == y_end_mm(lineI)
             % Horizontal line  
@@ -57,19 +56,21 @@ for z=z_grid_mm
                  yy_mm <= max(y_start_mm(lineI),y_end_mm(lineI));
         end
 
-        % Create the base line
-        c(yI&xI) = 0; 
 
         % Gausian waist at the depth we are
         wz_mm = w0_mm*sqrt(1+( ...
             (z_start_end_mm(lineI)-z) /zR_mm)^2);
 
-        % Gausian filt
-        c = imgaussfilt(c, wz_mm/sqrt(2)/pixel_size_mm)-photobleach_intensity;
-        c(c<0)=0;
-
+        % Add the line
+        c=createPhotobleachArea(yI&xI,photobleach_intensity,wz_mm/pixel_size_mm);
         c_all = c_all .* c;
     end
+
+    % Add center point
+    c=createPhotobleachArea(...
+        xx_mm==min(abs(x_grid_mm)) & yy_mm==min(abs(y_grid_mm)),...
+        photobleach_intensity,2);
+    c_all = c_all .* c;
 
     % Add the OCT scan
     if all(~isnan(oct_scan_mm))
@@ -127,4 +128,23 @@ for i=1:length(z)
             );
     end
 end
+end
+
+function c=createPhotobleachArea(whereToPhotobleach,photobleach_intensity,w)
+% whereToPhotobleach - bolean mask = 1 if photobleach center / seed, 0
+%   otherwise.
+% w - gausian waist size in pixels
+
+% Create canvas 
+c = ones(size(whereToPhotobleach))*(photobleach_intensity+1); 
+
+% Create the photobleach area
+c(whereToPhotobleach) = 0; 
+
+% Gausian filt
+c = imgaussfilt(c, w/sqrt(2))-photobleach_intensity;
+
+% Clean uo
+c(c<0)=0;
+
 end
