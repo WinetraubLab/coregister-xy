@@ -18,37 +18,37 @@ end
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
 
 % Right
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(200e-3, 0, false, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(185e-3, 0, false, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Left
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-200e-3, 0, false, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-185e-3, 0, false, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Right-Center
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(90e-3, 0, false, true);
-x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+%[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(90e-3, 0, false, true);
+%x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Left-Center
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-90e-3, 0, false, true);
-x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+%[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-90e-3, 0, false, true);
+%x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Down
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 200e-3, true, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 185e-3, true, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Top
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -200e-3, true, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -185e-3, true, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 %% Alignment markers (L shape)
 nGridLines = 0;
 
-x_start_mm = [x_start_mm [-0.20 -0.20 -0.20 0.15 0.20]];
-x_end_mm =   [x_end_mm   [-0.20 -0.20 -0.18 0.18 0.23]];
-y_start_mm = [y_start_mm [-0.20  0.15  0.20 0.20 0.20]];
-y_end_mm =   [y_end_mm   [-0.15  0.20  0.20 0.20 0.20]];
-nGridLines = nGridLines + 5;
+x_start_mm = [x_start_mm [-0.30  -0.30  -0.30   0.34   1.00   0.00]];
+x_end_mm =   [x_end_mm   [-0.30  -0.24  -0.30   0.22   0.40   0.00]];
+y_start_mm = [y_start_mm [ 0.20   0.30  -0.34   0.30   0.00  -1.50]];
+y_end_mm =   [y_end_mm   [ 0.30   0.30  -0.22   0.30   0.00  -0.40]];
+nGridLines = nGridLines + 6;
 
 
 %% Markers depths    
@@ -112,8 +112,8 @@ end
 %% Small Pattern
 function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern( ...
     offset_x_mm, offset_y_mm, is_flip_xy, is_flip_z)
-scale1 = 100e-3; %mm
-scale2 = 220e-3;
+scale1 = 150e-3; %mm
+scale2 = 180e-3;
 xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*scale1 + 10e-3 -scale1/2;
 xp_end_mm   = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,  3]/3*scale1 - 10e-3 -scale1/2;
 yp_start_mm = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3,  3]/3*scale2         -scale2/2;
