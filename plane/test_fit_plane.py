@@ -11,6 +11,15 @@ class TestFitPlane(unittest.TestCase):
     def setUp(self):
       self.source_image_points = np.array([ [20,60], [20, 10], [60, 10], [30, 20], [30, 45], [45, 45]])
 
+    def _rotate_point(self,x,y,angle):
+        # Rotates a point by specified degree angle
+        angle_radians = math.radians(angle)
+        cos_theta = math.cos(angle_radians)
+        sin_theta = math.sin(angle_radians)
+        x_new = x * cos_theta - y * sin_theta
+        y_new = x * sin_theta + y * cos_theta
+        return x_new, y_new
+      
     def test_main_fit_function_runs(self):
       FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, self.source_image_points)
 
@@ -60,15 +69,6 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(dest_image[2,1,0], 1) # Red visible
       self.assertAlmostEqual(dest_image[2,4,2], 1) # Blue visible
       assert not np.any(dest_image[:,:,1] == 1) # The green point should be out of frame
-
-    def _rotate_point(self,x,y,angle):
-        # Rotates a point by specified degree angle
-        angle_radians = math.radians(angle)
-        cos_theta = math.cos(angle_radians)
-        sin_theta = math.sin(angle_radians)
-        x_new = x * cos_theta - y * sin_theta
-        y_new = x * sin_theta + y * cos_theta
-        return x_new, y_new
     
     def test_rotation_90(self):
       # Create array of rotated points
@@ -338,6 +338,7 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(shear, 0)
     
     def test_compute_physical_rotate_translate(self):
+      # rotate then translate
       dest_image_points = np.array([self._rotate_point(x,y,45) for [x,y] in self.source_image_points])
       dest_image_points = np.array([[p[0]+1,p[1]+2] for p in dest_image_points])
       fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
@@ -347,6 +348,20 @@ class TestFitPlane(unittest.TestCase):
       self.assertAlmostEqual(theta, 45)
       self.assertAlmostEqual(sx, 1)
       self.assertAlmostEqual(sy, 1)
+      self.assertAlmostEqual(shear, 0)
+
+    def test_compute_physical_scale_rotate_translate(self):
+      # scale then rotate then translate
+      dest_image_points = np.array([[p[0]*2,p[1]*3] for p in self.source_image_points])
+      dest_image_points = np.array([self._rotate_point(x,y,30) for [x,y] in dest_image_points])
+      dest_image_points = np.array([[p[0]+1,p[1]+2] for p in dest_image_points])
+      fp = FitPlane.from_fitting_points_between_fluorescence_image_and_template(self.source_image_points, dest_image_points)
+      (tx,ty), theta, sx, sy, shear = fp.compute_physical_params()
+      self.assertAlmostEqual(tx, 1, places=3)
+      self.assertAlmostEqual(ty, 2, places=3)
+      self.assertAlmostEqual(theta, 30, places=3)
+      self.assertAlmostEqual(sx, 2, places=3)
+      self.assertAlmostEqual(sy, 3, places=3)
       self.assertAlmostEqual(shear, 0)
 
 if __name__ == '__main__':
