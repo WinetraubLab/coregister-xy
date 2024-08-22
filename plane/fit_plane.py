@@ -80,7 +80,7 @@ class FitPlane:
 
         return np.array([x_new, y_new])
     
-    def transform_image(self, source_image, dest_image_shape=None, reverse=False):
+    def transform_image(self, source_image, dest_image_shape=None):
         """
         Transform an image. 
         Inputs:
@@ -101,10 +101,7 @@ class FitPlane:
         y_dest_range, x_dest_range, _ = dest_image_shape
         for x_i in range(x_dest_range):
             for y_i in range(y_dest_range):
-                if reverse:
-                    x_source, y_source = self.transform_point([x_i, y_i], False)
-                else:
-                    x_source, y_source = self.transform_point([x_i, y_i], True)
+                x_source, y_source = self.transform_point([x_i, y_i], True)
                 if 0 <= round(y_source) < source_image.shape[0] and 0 <= round(x_source) < source_image.shape[1]:
                     transformed_coords[y_i, x_i] = [x_source, y_source]
 
