@@ -80,7 +80,7 @@ class FitPlane:
 
         return np.array([x_new, y_new])
     
-    def transform_image(self, source_image, dest_image_shape=None):
+    def transform_image(self, source_image, dest_image_shape=None, reverse=False):
         """
         Transform an image. 
         Inputs:
@@ -101,7 +101,10 @@ class FitPlane:
         y_dest_range, x_dest_range, _ = dest_image_shape
         for x_i in range(x_dest_range):
             for y_i in range(y_dest_range):
-                x_source, y_source = self.transform_point([x_i, y_i], True)
+                if reverse:
+                    x_source, y_source = self.transform_point([x_i, y_i], False)
+                else:
+                    x_source, y_source = self.transform_point([x_i, y_i], True)
                 if 0 <= round(y_source) < source_image.shape[0] and 0 <= round(x_source) < source_image.shape[1]:
                     transformed_coords[y_i, x_i] = [x_source, y_source]
 
@@ -113,6 +116,7 @@ class FitPlane:
         Compute physical representation of transform from matrix M.
         Returns:
             translation (x,y), rotation, scaling x y, and shear.
+            Shear is horizontal (x-direction).
         """
         M = np.transpose(self.M)
         if reverse:
@@ -125,7 +129,24 @@ class FitPlane:
         theta_deg = np.degrees(np.arctan2(c,a))
         scale_x = np.sqrt(a**2 + c**2)
         scale_y = np.sqrt(b**2 + d**2)
-        shear = (a * b + c * d) / (scale_x * scale_y)
 
-        return translation, theta_deg, scale_x, scale_y, shear
+
+
+        # Rotation matrix
+        R = np.array([
+            [np.cos(np.arctan2(c,a)), -np.sin(np.arctan2(c,a))],
+            [np.sin(np.arctan2(c,a)), np.cos(np.arctan2(c,a))]
+        ])
+
+        # Compute the inverse rotation matrix
+        R_inv = np.linalg.inv(R)
+
+        # Shear in x-direction (after removing rotation effect)
+        shear_x = R_inv[0, 0] * b + R_inv[0, 1] * c
+
+        # Shear in y-direction (after removing rotation effect)
+        shear_y = R_inv[1, 0] * b + R_inv[1, 1] * c
+
+
+        return translation, theta_deg, scale_x, scale_y, shear_x, shear_y
     
