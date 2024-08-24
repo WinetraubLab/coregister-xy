@@ -1,0 +1,10 @@
+<landmarks>
+ <layer id="5">
+  <point patch_id="8" x="800" y="801" />
+  <point patch_id="8" x="80" y="81" />
+ </layer>
+ <layer id="9">
+  <point patch_id="11" x="110" y="111" />
+  <point patch_id="11" x="11" y="10" />
+ </layer>
+</landmarks>

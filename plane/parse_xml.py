@@ -17,9 +17,8 @@ class ParseXML:
         tree = ET.parse(trakem_filepath)
         root = tree.getroot()
         # TODO error handling
-        source_patch = root.findall(f".//*[@oid='{source_patch_num}']")
-        dest_patch = root.findall(f".//*[@oid='{dest_patch_num}']")
-        print(source_patch.tag, dest_patch.tag)
+        source_patch = root.find(f".//*[@oid='{source_patch_num}']")
+        dest_patch = root.find(f".//*[@oid='{dest_patch_num}']")
 
         def extract_m(m_string):
             m_string = m_string.replace("matrix(", "").replace(")", "")
@@ -27,11 +26,11 @@ class ParseXML:
             m = np.array([ [m_string[0], m_string[2], m_string[4]], [m_string[1], m_string[3], m_string[5]]  ])
             return m
         
-        source_transform = source_patch.attrib['transform']
+        source_transform = source_patch.get('transform')
         if not source_transform:
                 raise TypeError(f"No transform found for {source_patch}, patch id {source_patch_num}")
         source_transform = extract_m(source_transform)
-        dest_transform = dest_patch.attrib['transform']
+        dest_transform = dest_patch.get('transform')
         if not dest_transform:
                 raise TypeError(f"No transform found for {dest_patch}, patch id {dest_patch_num}")
         dest_transform = extract_m(dest_transform)
