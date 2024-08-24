@@ -63,3 +63,41 @@ class ParseXML:
             source_points = source_points,
             dest_points = dest_points
         )
+    
+    def compute_physical_params(self, reverse=False):
+        """
+        Compute physical representation of transform from matrix M.
+        Returns:
+            translation (x,y), rotation, scaling x, scaling y, shear direction, shear magnitude.
+        """
+        M = self.M
+        if reverse:
+            M = np.transpose(np.linalg.inv(self.M))
+        
+        a, b, tx = M[0]
+        c, d, ty = M[1]
+
+        translation = (tx, ty)
+        theta_deg = np.degrees(np.arctan2(c,a))
+        scale_x = np.sqrt(a**2 + c**2)
+        scale_y = np.sqrt(b**2 + d**2)
+
+
+        # SHEARING TODO ?????
+
+        # Normalize to remove scaling
+        M_norm = np.array([
+            [a / scale_x, b / scale_y],
+            [c / scale_x, d / scale_y]
+        ])
+        # Shear direction calculation
+        shear_angle_rad = 0.5 * np.arctan2((M_norm[0, 1] + M_norm[1, 0]),
+                       (M_norm[0, 0] - M_norm[1, 1]))
+        # shear_angle_rad = np.arctan2(M_norm[0,1], M_norm[1,1])
+        shear_magnitude = M_norm[0, 1] / np.cos(shear_angle_rad)
+        shear_angle = np.degrees(shear_angle_rad)
+
+        if shear_magnitude < 0:
+            shear_magnitude *= -1
+            shear_angle *= -1
+        return translation, theta_deg, scale_x, scale_y, shear_angle, shear_magnitude

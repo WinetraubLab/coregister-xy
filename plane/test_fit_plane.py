@@ -426,6 +426,7 @@ class TestFitPlane(unittest.TestCase):
     #    print(fp_up.M_rev)
 
     def test_parse_xml(self):
+      # Real saved TrakEM2 XML project files, with original numbers replaced for convenience
       tk_filepath = "plane/test_vectors/align-1.xml"
       l_filepath = "plane/test_vectors/landmarks.xml"
       tk_data = ParseXML.extract_data(tk_filepath, 8, 11, l_filepath)
