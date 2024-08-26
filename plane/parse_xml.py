@@ -12,7 +12,10 @@ class ParseXML:
         """
         Function to get transform matrix, source and dest points from XML file of TrakEM2 project.
         Inputs:
-            filepath: path to XML file
+            trakem_filepath: path to XML file.
+            source_patch_num: the patch number assigned to your source image by ImageJ.
+            dest_patch_num: patch number assigned to dest image by ImageJ.
+            landmarks_filepath: the file with exported landmarks from both images.
         """
         tree = ET.parse(trakem_filepath)
         root = tree.getroot()
@@ -36,12 +39,10 @@ class ParseXML:
         dest_transform = extract_m(dest_transform)
 
         # dest_transform is supposed to be identity matrix, so if not, add the inverse transform to source_transform
-        eye = np.array([
-             [1.0, 0.0, 0.0],
-             [0.0, 1.0, 0.0]
-        ])
+        eye = np.eye(2,3)
         if not np.allclose(eye, dest_transform):
             source_transform = np.linalg.inv(dest_transform) @ source_transform
+        source_transform = np.vstack([source_transform, [0.0, 0.0, 1.0]])
 
         # Get landmark points if file is provided
         source_points = []
@@ -101,3 +102,32 @@ class ParseXML:
             shear_magnitude *= -1
             shear_angle *= -1
         return translation, theta_deg, scale_x, scale_y, shear_angle, shear_magnitude
+
+    def find_transformation_error_from_points(self, source_points, dest_points):
+        """
+        This function calculates the transformation error between a set of source and destination 
+        points. Inputs can be points other than the landmarks already stored in the class object.
+        Inputs:
+            source_points: an array or list of points (x,y).
+            dest_points: must have same shape as source_points.
+        """
+        source_points = np.array(source_points)
+        dest_points = np.array(dest_points)
+        assert source_points.shape == dest_points.shape
+
+        transformed_points = self.M @ self.dest_points 
+        assert transformed_points.shape == self.source_points.shape
+
+        distances = np.linalg.norm(transformed_points-self.source_points, axis=1)
+        avg_err = np.mean(distances)
+        return avg_err
+
+
+    def find_transformation_error(self):
+        """
+        This function calculates the transformation error between the source and dest points
+        from LANDMARKS.XML. Must be initial landmarks selected BEFORE any alignment was done.
+        Returns:
+            Average distance between respective landmarks after alignment
+        """
+        return self.find_transformation_error_from_points(self.source_points, self.dest_points)

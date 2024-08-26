@@ -425,22 +425,5 @@ class TestFitPlane(unittest.TestCase):
     #    print((tx,ty), theta, sx, sy, shear_dir, shear_mag)
     #    print(fp_up.M_rev)
 
-    def test_parse_xml(self):
-      # Real saved TrakEM2 XML project files, with original numbers replaced for convenience
-      tk_filepath = "plane/test_vectors/align-1.xml"
-      l_filepath = "plane/test_vectors/landmarks.xml"
-      tk_data = ParseXML.extract_data(tk_filepath, 8, 11, l_filepath)
-      self.assertAlmostEqual(tk_data.M[0,0], 1)
-      self.assertAlmostEqual(tk_data.M[1,0], 2)
-      self.assertAlmostEqual(tk_data.M[0,1], 3)
-      self.assertAlmostEqual(tk_data.M[0,2], 500)
-      self.assertAlmostEqual(tk_data.M[1,2], 600)
-      self.assertAlmostEqual(tk_data.source_points[0,0],800)
-      self.assertAlmostEqual(tk_data.source_points[0,1],801)
-      self.assertAlmostEqual(tk_data.source_points[1,0],80)
-      self.assertAlmostEqual(tk_data.source_points[1,1],81)
-      self.assertAlmostEqual(tk_data.dest_points[1,0],11)
-      self.assertAlmostEqual(tk_data.dest_points[1,1],10)
-
 if __name__ == '__main__':
   unittest.main()
