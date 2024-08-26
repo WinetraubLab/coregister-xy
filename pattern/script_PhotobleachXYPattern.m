@@ -20,8 +20,8 @@ octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
     generateXYPattern(true);
 
 % Photobleach configurations
-nPasses = 1; % Keep as low as possible. If galvo gets stuck, increase number
-line_exposure_sec_mm = 0.5; % sec/mm. For gel use 0.5
+nPasses = 2; % For gel use 1 pass. Keep as low as possible. If galvo gets stuck, increase number. 
+line_exposure_sec_mm = 5; % sec/mm. For gel use 0.5
 
 %% Input checks
 if (min(z_mm))
