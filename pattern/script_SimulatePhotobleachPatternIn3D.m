@@ -8,15 +8,15 @@
 %% Script Inputs
 
 % Define the bounding box to generate 3D simulation for
-x_grid_mm = -0.30:1e-3:0.30;
-y_grid_mm = -0.30:1e-3:0.30;
-z_grid_mm =  0.00:5e-3:0.20;
+x_grid_mm = -0.40:2e-3:0.40;
+y_grid_mm = -0.40:2e-3:0.40;
+z_grid_mm =  0.00:2e-3:0.40;
 
 % Physical parameters 
 NA = 0.35; % Match NA to observed photobleach pattern. For 40x use 0.35 (though lens NA is 0.8)
 lambda_mm = 900e-9*1e3; % Wavelength in m
 n = 1.4; % Medium index of refraction
-photobleach_intensity = 40; % Can be any number >0
+photobleach_intensity = 40/(diff(y_grid_mm(1:2))/1e-3); % Can be any number >0
 
 % Plot OCT volume on top?
 oct_scan_mm = [-0.25 0.25]; % OCT x-y scan size
@@ -24,7 +24,7 @@ oct_scan_mm = [-0.25 0.25]; % OCT x-y scan size
 % oct_scan_mm = nan;
 
 % Simulation output
-output_tiff_file = 'out.tiff';
+output_tiff_file = 'out_xy.tiff';
 
 %% Configurable Parameters
 % Gausian base waist
@@ -37,7 +37,7 @@ pixel_size_mm = diff(x_grid_mm(1:2));
 
 % Loop for each plane in z
 isFirstLoop=true;
-for z=z_grid_mm
+for z=fliplr(z_grid_mm) % Start at the bottom for ImageJ orientation
     c_all = ones(size(xx_mm));
 
     % Loop over all lines
@@ -69,13 +69,18 @@ for z=z_grid_mm
     % Add center point
     c=createPhotobleachArea(...
         xx_mm==min(abs(x_grid_mm)) & yy_mm==min(abs(y_grid_mm)),...
-        photobleach_intensity,2);
+        photobleach_intensity,4);
     c_all = c_all .* c;
 
     % Add the OCT scan
     if all(~isnan(oct_scan_mm))
         c_all = addOCTScanRectangle(c_all, xx_mm, yy_mm, oct_scan_mm,pixel_size_mm);
     end
+
+    % Write z depth
+    c_all = rgb2gray(insertText(c_all,[size(c_all,2)/2 0],...
+        sprintf('z=%.1fum',z*1e3),...
+        'FontSize',20,'AnchorPoint','CenterTop'));
 
     % Save to disk
     if isFirstLoop
