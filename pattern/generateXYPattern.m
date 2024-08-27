@@ -25,14 +25,6 @@ x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-185e-3, 0, false, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
-% Right-Center
-%[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(90e-3, 0, false, true);
-%x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
-
-% Left-Center
-%[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-90e-3, 0, false, true);
-%x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
-
 % Down
 [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 185e-3, true, false);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
@@ -44,11 +36,23 @@ x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm
 %% Alignment markers (L shape)
 nGridLines = 0;
 
-x_start_mm = [x_start_mm [-0.30  -0.30  -0.30   0.34   1.00   0.00]];
-x_end_mm =   [x_end_mm   [-0.30  -0.24  -0.30   0.22   0.40   0.00]];
-y_start_mm = [y_start_mm [ 0.20   0.30  -0.34   0.30   0.00  -1.50]];
-y_end_mm =   [y_end_mm   [ 0.30   0.30  -0.22   0.30   0.00  -0.40]];
-nGridLines = nGridLines + 6;
+% Small L
+if true
+    x_start_mm = [x_start_mm [-0.30  -0.30  -0.30   0.10  0.22]];
+    x_end_mm =   [x_end_mm   [-0.30  -0.30  -0.20   0.17  0.30]];
+    y_start_mm = [y_start_mm [-0.20   0.10   0.30   0.30  0.30]];
+    y_end_mm =   [y_end_mm   [-0.30   0.30   0.30   0.30  0.30]];
+    nGridLines = nGridLines + 5;
+end 
+
+% Big L
+if false
+    x_start_mm = [x_start_mm [1.00   0.00]];
+    x_end_mm =   [x_end_mm   [0.40   0.00]];
+    y_start_mm = [y_start_mm [0.00  -1.50]];
+    y_end_mm =   [y_end_mm   [0.00  -0.40]];
+    nGridLines = nGridLines + 2;
+end
 
 
 %% Markers depths    
