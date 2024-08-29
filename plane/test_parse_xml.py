@@ -47,5 +47,100 @@ class TestParseXML(unittest.TestCase):
       err = tk_data.find_transformation_error()
       self.assertAlmostEqual(err, 2)
 
+    def test_compute_physical_scale_rotate_translate(self):
+      # scale then rotate then translate
+      # construct transformations
+      S = np.array([
+          [2, 0, 0],
+          [0, 3, 0],
+          [0, 0, 1]
+      ])
+      H = np.array([
+          [1, 2, 0],
+          [5, 1, 0],
+          [0, 0, 1]
+      ])
+      theta = np.deg2rad(30)
+      R = np.array([
+          [np.cos(theta), -np.sin(theta), 0],
+          [np.sin(theta), np.cos(theta), 0],
+          [0, 0, 1]
+      ])
+
+      T = np.array([
+          [1, 0, 10],
+          [0, 1, 20],
+          [0, 0, 1]
+      ])
+
+      M = T @ R @ S @ H
+      tk_data = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath)
+      tk_data.M = M
+      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
+      print("Original transformations: (10, 20), 30, 2, 3, (2,5)")
+      print("New transformations: ", tx, ty, theta, sx, sy, shear)
+
+      S2 = np.array([
+          [sx, 0, 0],
+          [0, sy, 0],
+          [0, 0, 1]
+      ])
+      H2 = np.array([
+          [1, shear, 0],
+          [0, 1, 0],
+          [0, 0, 1]
+      ])
+      theta = np.deg2rad(theta)
+      R2 = np.array([
+          [np.cos(theta), -np.sin(theta), 0],
+          [np.sin(theta), np.cos(theta), 0],
+          [0, 0, 1]
+      ])
+
+      T2 = np.array([
+          [1, 0, tx],
+          [0, 1, ty],
+          [0, 0, 1]
+      ])
+      M2 = T2 @ R2 @ S2 @ H2
+      
+      for row in range(0, M2.shape[0]):
+         for col in range(0, M2.shape[1]):
+            self.assertAlmostEqual(M2[row,col], M[row, col])
+
+    def test_compute_physical_from_xml(self):
+      # scale then rotate then translate
+      tk_data = ParseXML.extract_data("plane/test_vectors/trakem-sample.xml", 8, 11, "plane/test_vectors/landmarks-sample.xml")
+      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
+      print("New transformations: ", tx, ty, theta, sx, sy, shear)
+
+      S2 = np.array([
+          [sx, 0, 0],
+          [0, sy, 0],
+          [0, 0, 1]
+      ])
+      H2 = np.array([
+          [1, shear, 0],
+          [0, 1, 0],
+          [0, 0, 1]
+      ])
+      theta = np.deg2rad(theta)
+      R2 = np.array([
+          [np.cos(theta), -np.sin(theta), 0],
+          [np.sin(theta), np.cos(theta), 0],
+          [0, 0, 1]
+      ])
+
+      T2 = np.array([
+          [1, 0, tx],
+          [0, 1, ty],
+          [0, 0, 1]
+      ])
+      M2 = T2 @ R2 @ S2 @ H2
+      
+      for row in range(0, M2.shape[0]):
+         for col in range(0, M2.shape[1]):
+            self.assertAlmostEqual(M2[row,col], tk_data.M[row, col])
+
 if __name__ == '__main__':
   unittest.main()
