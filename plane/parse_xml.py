@@ -103,10 +103,19 @@ class ParseXML:
         dest_points = np.array(dest_points)
         assert source_points.shape == dest_points.shape
 
-        transformed_points = self.M @ self.dest_points 
-        assert transformed_points.shape == self.source_points.shape
+        if source_points.shape[-1] == 2:
+             ones_column = np.ones((source_points.shape[0], 1))
+             source_points = np.hstack((source_points, ones_column))
+             dest_points = np.hstack((dest_points, ones_column))
 
-        distances = np.linalg.norm(transformed_points-self.source_points, axis=1)
+        transformed_points = source_points @ self.M.T
+        assert transformed_points.shape == source_points.shape
+
+        transformed_points = transformed_points[:, :-1]
+        source_points = source_points[:, :-1]
+        dest_points = dest_points[:, :-1]
+
+        distances = np.linalg.norm(transformed_points-dest_points, axis=1)
         avg_err = np.mean(distances)
         return avg_err
 

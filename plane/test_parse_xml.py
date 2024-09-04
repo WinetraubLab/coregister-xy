@@ -77,8 +77,6 @@ class TestParseXML(unittest.TestCase):
       tk_data = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath)
       tk_data.M = M
       tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
-      print("Original transformations: (10, 20), 30, 2, 3, (2,5)")
-      print("New transformations: ", tx, ty, theta, sx, sy, shear)
 
       S2 = np.array([
           [sx, 0, 0],
@@ -112,7 +110,6 @@ class TestParseXML(unittest.TestCase):
       # scale then rotate then translate
       tk_data = ParseXML.extract_data("plane/test_vectors/trakem-sample.xml", 8, 11, "plane/test_vectors/landmarks-sample.xml")
       tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
-      print("New transformations: ", tx, ty, theta, sx, sy, shear)
 
       S2 = np.array([
           [sx, 0, 0],
@@ -141,6 +138,20 @@ class TestParseXML(unittest.TestCase):
       for row in range(0, M2.shape[0]):
          for col in range(0, M2.shape[1]):
             self.assertAlmostEqual(M2[row,col], tk_data.M[row, col])
+    
+    def test_compute_error(self):
+      test_project = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project.M = np.array([[1,0,0], [0,1,0], [0,0,1]])
+      test_project.source_points = np.array([[1,2], [3,4]])
+      test_project.dest_points = np.array([[3, 2], [3,6]])
+      err = test_project.find_transformation_error()
+      self.assertAlmostEqual(err, 2)
+
+      test_project.M = np.array([[1,0,2], [0,1,5], [0,0,1]])
+      test_project.source_points = np.array([[1,2], [3,4]])
+      test_project.dest_points = np.array([[3, 7], [5,9]])
+      err = test_project.find_transformation_error()
+      self.assertAlmostEqual(err, 0)
 
 if __name__ == '__main__':
   unittest.main()
