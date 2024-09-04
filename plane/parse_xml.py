@@ -9,7 +9,7 @@ class ParseXML:
         self.dest_points = dest_points
 
     @classmethod
-    def extract_data(cls, trakem_filepath, source_patch_num, dest_patch_num, landmarks_filepath=None):
+    def extract_data(cls, trakem_filepath, source_patch_num, dest_patch_num, landmarks_filepath=None, multi=False):
         """
         Function to get transform matrix, source and dest points from XML file of TrakEM2 project.
         Inputs:
@@ -39,11 +39,8 @@ class ParseXML:
                 raise TypeError(f"No transform found for {dest_patch}, patch id {dest_patch_num}")
         dest_transform = extract_m(dest_transform)
 
-        # dest_transform is supposed to be identity matrix, so if not, add the inverse transform to source_transform
-        eye = np.eye(2,3)
-        if not np.allclose(eye, dest_transform):
-            source_transform = np.linalg.inv(dest_transform) @ source_transform
         source_transform = np.vstack([source_transform, [0.0, 0.0, 1.0]])
+        dest_transform = np.vstack([dest_transform, [0.0, 0.0, 1.0]])
 
         # Get landmark points if file is provided
         source_points = []
@@ -60,11 +57,19 @@ class ParseXML:
         source_points = np.array(source_points)
         dest_points = np.array(dest_points)
 
-        return cls(
-            M = source_transform,
-            source_points = source_points,
-            dest_points = dest_points
-        )
+        if multi:
+            print("multi")
+            return cls(
+                M = dest_transform,
+                source_points = dest_points,
+                dest_points = source_points
+            )
+        else:
+            return cls(
+                M = source_transform,
+                source_points = source_points,
+                dest_points = dest_points
+            )
     
     def compute_physical_params(self):
         """
@@ -81,6 +86,11 @@ class ParseXML:
         shear = H[0]
 
         return tx, ty, theta_deg, sx, sy, shear
+    
+    def transform_points(self, points):
+         points = np.array(points)
+         transformed_points = self.M @ points
+         return transformed_points
 
     def find_transformation_error_from_points(self, source_points, dest_points):
         """
@@ -100,7 +110,6 @@ class ParseXML:
         distances = np.linalg.norm(transformed_points-self.source_points, axis=1)
         avg_err = np.mean(distances)
         return avg_err
-
 
     def find_transformation_error(self):
         """
