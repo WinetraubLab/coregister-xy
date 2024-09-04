@@ -58,7 +58,6 @@ class ParseXML:
         dest_points = np.array(dest_points)
 
         if multi:
-            print("multi")
             return cls(
                 M = dest_transform,
                 source_points = dest_points,
