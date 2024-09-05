@@ -153,5 +153,14 @@ class TestParseXML(unittest.TestCase):
       err = test_project.find_transformation_error()
       self.assertAlmostEqual(err, 0)
 
+    def test_calc_new_scale(self):
+      test_project = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project.M = np.array([[1,0,0], [0,1,0], [0,0,1]])
+      self.assertAlmostEqual(test_project.calc_real_scale(1, 0), 1)
+
+      test_project.M = np.array([[2,0,0], [0,3,0], [0,0,1]])
+      self.assertAlmostEqual(test_project.calc_real_scale(1, 0), 0.5)
+      self.assertAlmostEqual(test_project.calc_real_scale(2, 90), 2/3)
+
 if __name__ == '__main__':
   unittest.main()

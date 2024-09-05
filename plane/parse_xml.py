@@ -127,3 +127,18 @@ class ParseXML:
             Average distance between respective landmarks after alignment
         """
         return self.find_transformation_error_from_points(self.source_points, self.dest_points)
+    
+    def calc_real_scale(self, original_um_per_pixel=1, angle=0):
+        """
+        Function calculates the distance represented per pixel after transformation, along
+        a given direction (useful for calculating the distance between 2 barcodes).
+        Returns: distance represented per pixel along given angle (default 0 = along x axis).
+        Angle increases counterclockwise starting at x axis.
+        """
+        tx, ty, theta_deg, sx, sy, shear = self.compute_physical_params()
+        rel_angle = angle - theta_deg # theta_deg is in the opposite direction
+        rads = np.radians(rel_angle)
+        scale_effective = np.sqrt((sx * np.cos(rads) + shear * np.sin(rads)) ** 2 + (sy * np.sin(rads)) ** 2)
+        dist_per_pixel = original_um_per_pixel / scale_effective
+        return dist_per_pixel
+    
