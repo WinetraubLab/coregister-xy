@@ -76,7 +76,7 @@ class TestParseXML(unittest.TestCase):
       M = T @ R @ S @ H
       tk_data = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath)
       tk_data.M = M
-      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
+      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params_old()
 
       S2 = np.array([
           [sx, 0, 0],
@@ -109,7 +109,7 @@ class TestParseXML(unittest.TestCase):
     def test_compute_physical_from_xml(self):
       # scale then rotate then translate
       tk_data = ParseXML.extract_data("plane/test_vectors/trakem-sample.xml", 8, 11, "plane/test_vectors/landmarks-sample.xml")
-      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params()
+      tx, ty, theta, sx, sy, shear = tk_data.compute_physical_params_old()
 
       S2 = np.array([
           [sx, 0, 0],
@@ -161,6 +161,20 @@ class TestParseXML(unittest.TestCase):
       test_project.M = np.array([[2,0,0], [0,3,0], [0,0,1]])
       self.assertAlmostEqual(test_project.calc_real_scale(1, 0), 0.5)
       self.assertAlmostEqual(test_project.calc_real_scale(2, 90), 2/3)
+
+    def test_physical_svd(self):
+      test_project = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project.M = np.array([[2,0,0], [0,2,0], [0,0,1]])
+      theta = np.deg2rad(30)
+      R2 = np.array([
+          [np.cos(theta), -np.sin(theta), 0],
+          [np.sin(theta), np.cos(theta), 0],
+          [0, 0, 1]
+      ])
+      test_project.M = test_project.M @ R2
+      s, theta = test_project.compute_physical_params_svd()
+      self.assertAlmostEqual(s, 2)
+      self.assertAlmostEqual(theta, 30)
 
 if __name__ == '__main__':
   unittest.main()

@@ -70,7 +70,7 @@ class ParseXML:
                 dest_points = dest_points
             )
     
-    def compute_physical_params(self):
+    def compute_physical_params_old(self):
         """
         Compute physical representation of transform from matrix M.
         Returns:
@@ -85,6 +85,19 @@ class ParseXML:
         shear = H[0]
 
         return tx, ty, theta_deg, sx, sy, shear
+         
+    def compute_physical_params_svd(self):
+        # SVD decomp
+        A = np.array([[self.M[0,0], self.M[0,1]], [self.M[1,0], self.M[1,1]]])
+        U, S, Vt = np.linalg.svd(A)
+        s = np.mean(S)
+        R = U @ Vt
+        if np.linalg.det(R) < 0:
+            Vt[-1, :] *= -1
+            R = U @ Vt
+        theta_rad = np.arctan2(R[1,0], R[0,0])
+        theta_deg = np.degrees(theta_rad)
+        return s, theta_deg
     
     def transform_points(self, points):
          points = np.array(points)
