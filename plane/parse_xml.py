@@ -86,9 +86,9 @@ class ParseXML:
 
         return tx, ty, theta_deg, sx, sy, shear
          
-    def compute_physical_params_svd(self):
-        # SVD decomp
-        A = np.array([[self.M[0,0], self.M[0,1]], [self.M[1,0], self.M[1,1]]])
+    def compute_physical_params_svd(self, M):
+        # SVD decomposition of a provided matrix
+        A = np.array([[M[0,0], M[0,1]], [M[1,0], M[1,1]]])
         U, S, Vt = np.linalg.svd(A)
         s = np.mean(S)
         R = U @ Vt
@@ -96,8 +96,70 @@ class ParseXML:
             Vt[-1, :] *= -1
             R = U @ Vt
         theta_rad = np.arctan2(R[1,0], R[0,0])
-        theta_deg = np.degrees(theta_rad)
-        return s, theta_deg
+        return s, theta_rad
+    
+    def compute_physical_svd_irreducible(self):
+        """
+        Compute physical representation of transform from matrix M.
+        1) remove average uniform scaling and rotation components using SVD
+        2) find shear from remaining matrix using irreducible tensor decomposition
+        3) check that rotation and scaling are close to 0
+        Returns:
+            uniform scale, rotation, shear magnitude, shear vector
+        """
+        s, theta_rad = self.compute_physical_params_svd(self.M)
+        S = s * np.eye(2)
+        R = np.array([
+          [np.cos(theta_rad), -np.sin(theta_rad)],
+          [np.sin(theta_rad), np.cos(theta_rad)]])
+        B = S @ R
+        A = np.array([[self.M[0,0], self.M[0,1]], [self.M[1,0], self.M[1,1]]])
+        M = A - B
+
+        print(M)
+        # b,c and a,d should be close
+        if not np.all(M == 0):
+            assert M[0,0] * M[1,1] <= 0, "Cannot find irreducible matrix decomposition, a and d should be opposite signs"
+            if M[1,0] != 0 and M[0,1] != 0:
+                assert abs(abs(M[1,0]) - abs(M[0,1])) / ((abs(M[1,0]) + abs(M[0,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, b and c not similar"
+            if M[1,1] != 0 and M[0,0] != 0:
+                assert abs(abs(M[0,0]) - abs(M[1,1])) / ((abs(M[0,0]) + abs(M[1,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, a and d not similar"
+
+        # Irreducible tensor decomp of remaining matrix for shear
+        # Symmetric part
+        M_sym = 0.5 * (M + M.T)
+        # Antisymmetric (rotation) part
+        M_rotation = 0.5 * (M - M.T)
+        # Trace (expansion) part
+        trace = np.trace(M)
+        M_expansion = (trace / 2) * np.eye(2)
+
+        # Symmetric trace-free (shear) part
+        M_shear = M_sym - M_expansion
+
+        evals, evecs = np.linalg.eig(M_shear)
+        shear_magnitude = evals[0]
+        shear_vector = evecs[0]
+        if shear_magnitude < 0:
+             shear_magnitude *= -1
+             shear_vector *= -1
+        shear_vector = shear_vector / np.linalg.norm(shear_vector)
+        
+        # scale and rotation should be close to 0
+        assert M_expansion[0,0] < 0.1
+        assert np.degrees(np.arctan2(M_rotation[0,0], M_rotation[1,0])) % 180 < 10
+
+        # Reconstruct and remove shear from original M to find rotation and scaling.
+        # TODO temporary?
+        outer_product = np.outer(shear_vector, shear_vector)
+        shear_matrix = np.eye(2) + shear_magnitude * outer_product
+        H_inv = np.linalg.inv(shear_matrix)
+        A_no_shear = A @ H_inv
+        s2, theta2 = self.compute_physical_params_svd(A_no_shear)
+        
+        return s, np.degrees(theta_rad), shear_magnitude, shear_vector, self.M[0,2], self.M[1,2]
+    
+    # TODO try on real sample and also check the error stuff and landmarks selection
     
     def transform_points(self, points):
          points = np.array(points)

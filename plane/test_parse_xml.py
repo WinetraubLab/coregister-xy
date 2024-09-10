@@ -175,6 +175,30 @@ class TestParseXML(unittest.TestCase):
       s, theta = test_project.compute_physical_params_svd()
       self.assertAlmostEqual(s, 2)
       self.assertAlmostEqual(theta, 30)
+      
+    def test_physical_svd_irreducible(self):
+      test_project = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project.M = np.array([[1,0,0], [0,1,0], [0,0,1]])
+      theta = np.deg2rad(32)
+      R2 = np.array([
+          [np.cos(theta), -np.sin(theta), 0],
+          [np.sin(theta), np.cos(theta), 0],
+          [0, 0, 1]
+      ])
+      H = np.array([
+          [1, 0.03, 0],
+          [0.03, 1, 0],
+          [0, 0, 1]
+      ])
+      S = np.array([
+          [1.3, 0, 0],
+          [0, 1.3, 0],
+          [0, 0, 1]
+      ])
+      test_project.M = test_project.M @ R2 @ S @ H
+      s, theta, mag, dir, tx, ty = test_project.compute_physical_svd_irreducible()
+      self.assertAlmostEqual(s, 1.3)
+      self.assertAlmostEqual(theta, 32)
 
 if __name__ == '__main__':
   unittest.main()
