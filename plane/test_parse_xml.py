@@ -212,7 +212,7 @@ class TestParseXML(unittest.TestCase):
           [np.sin(theta), np.cos(theta), 0],
           [0, 0, 1]
       ])
-      scale = 2
+      scale = 3
       S = np.array([
           [scale, 0, 0],
           [0, scale, 0],
@@ -230,11 +230,17 @@ class TestParseXML(unittest.TestCase):
           [0, 0, 1]
       ])
       test_project.M = test_project.M @ R2 @ H @ S
-      s, r, m, v = test_project.compute_polar(test_project.M)
+      s, r, m, v ,tx, ty = test_project.compute_polar(test_project.M)
       self.assertAlmostEqual(r, deg)
       self.assertAlmostEqual(s, scale)
       self.assertAlmostEqual(m, 2)
       self.assertAlmostEqual(v[0], 1)
+    
+    def test_polar_real_matrix(self):
+      test_project = ParseXML.extract_data(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project.M = np.array([[ 1.84403066, -2.40635941e-01 , 4.98432352e+02],[ 2.56386722e-01 , 2.04612135e+00 , 2.72037605e+03],[ 0.00000000e+00 , 0.00000000e+00,  1.00000000e+00]])
+      s, r, m, v ,tx, ty = test_project.compute_polar(test_project.M)
+      print(s,r,m,v)
 
 if __name__ == '__main__':
   unittest.main()
