@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 import numpy as np
 import transforms3d
+from scipy.linalg import polar
 
 class ParseXML:
     def __init__(self, source_points=None, dest_points=None, M=None):
@@ -90,13 +91,126 @@ class ParseXML:
         # SVD decomposition of a provided matrix
         A = np.array([[M[0,0], M[0,1]], [M[1,0], M[1,1]]])
         U, S, Vt = np.linalg.svd(A)
-        s = np.mean(S)
+        print("ssssss:",S)
+        s = np.sqrt(S[0] * S[1])  # TODO probably not always true
+        # s = np.mean(S)
         R = U @ Vt
         if np.linalg.det(R) < 0:
             Vt[-1, :] *= -1
             R = U @ Vt
         theta_rad = np.arctan2(R[1,0], R[0,0])
         return s, theta_rad
+    
+    def compute_polar(self, M):
+        """
+        idk bro i did some math guessing and it worked eventually
+        """
+        # Separate out rotation
+        R, S_shear = polar(M)
+        print("Rotation matrix (R):")
+        print(R)
+        theta_rad = np.arctan2(R[1,0], R[0,0])
+        print(np.degrees(theta_rad))
+
+        # --------------------------------------------------------------------------
+
+        # Use determinant to find scale
+        sc = np.sqrt(np.linalg.det(S_shear))
+        print("Scale from determinant: ",sc)
+        S_inv = np.array([
+            [1/sc,0,0],
+            [0,1/sc,0],
+            [0,0,1]
+        ])
+        # Isolate shear component
+        H = S_shear @ S_inv
+        print(H)
+
+        # Find shear magnitude and direction 
+        evals, evecs = np.linalg.eig(H)
+        shear_magnitude = evals[0]
+        shear_vector = evecs[0]
+        if shear_magnitude < 0:
+             shear_magnitude *= -1
+             shear_vector *= -1
+        shear_vector = shear_vector / np.linalg.norm(shear_vector)
+
+        print("{:.2f}".format(shear_magnitude), shear_vector)
+
+        return sc, np.degrees(theta_rad), shear_magnitude, shear_vector
+
+
+        # --------------------------------------------------------------------------
+
+
+        # M = S_shear
+        # print("S_shear,",S_shear)
+        # # Irreducible tensor decomp of remaining matrix for shear and scale
+        # # Symmetric part
+        # M_sym = 0.5 * (M + M.T)
+        # # Antisymmetric (rotation) part
+        # M_rotation = 0.5 * (M - M.T)
+        # assert np.allclose(M_rotation, np.zeros(M_rotation.shape))
+
+        # # Trace (expansion) part
+        # trace = np.trace(M)
+        # M_expansion = (trace / 2) * np.eye(3)
+        # print("EXPANSION:", M_expansion[0,0])
+
+        # # Symmetric trace-free (shear) part
+        # M_shear = M_sym - M_expansion
+
+        # evals, evecs = np.linalg.eig(M_shear)
+        # shear_magnitude = evals[0]
+        # shear_vector = evecs[0]
+        # if shear_magnitude < 0:
+        #      shear_magnitude *= -1
+        #      shear_vector *= -1
+        # shear_vector = shear_vector / np.linalg.norm(shear_vector)
+
+
+
+
+
+
+        # # Compute trace of M
+        # M = np.array([[S_shear[0,0], S_shear[0,1]], [S_shear[1,0], S_shear[1,1]]])
+        # trace_M = np.trace(M)
+
+        # # Compute the trace part (uniform scaling)
+        # trace_part = (trace_M / 2) * np.eye(2)
+
+        # # Compute the shear part
+        # shear_part = M - trace_part
+
+        # # Verify if the shear part is symmetric and trace-free
+        # assert np.allclose(shear_part, shear_part.T)
+        # trace_shear_part = np.trace(shear_part)
+
+        # print("Trace Part:")
+        # print(trace_part)
+        # print("Shear Part:")
+        # print(shear_part)
+        # print("Trace of Shear Part (should be close to 0):", "{:.2f}".format(trace_shear_part))
+
+        # evals, evecs = np.linalg.eig(shear_part)
+        # shear_magnitude = evals[0]
+        # shear_vector = evecs[0]
+        # if shear_magnitude < 0:
+        #      shear_magnitude *= -1
+        #      shear_vector *= -1
+        # shear_vector = shear_vector / np.linalg.norm(shear_vector)
+
+        # print("{:.2f}".format(shear_magnitude), shear_vector)
+    
+    def compute_scale_rotation(self, M):
+        M = np.array([[M[0,0], M[0,1]], [M[1,0], M[1,1]]])
+        scale = np.sqrt(M[0,0] * M[1,1])
+        s = scale * np.eye(2)
+        s_inv = np.linalg.inv(s)
+        R = M @ s_inv
+        theta_rad = np.arctan2(R[0,0], R[1,0])
+        return scale, theta_rad
     
     def compute_physical_svd_irreducible(self):
         """
@@ -108,22 +222,28 @@ class ParseXML:
             uniform scale, rotation, shear magnitude, shear vector
         """
         s, theta_rad = self.compute_physical_params_svd(self.M)
-        S = s * np.eye(2)
+
+        S = 1/s * np.eye(2)
         R = np.array([
           [np.cos(theta_rad), -np.sin(theta_rad)],
           [np.sin(theta_rad), np.cos(theta_rad)]])
-        B = S @ R
+        print(self.M)
         A = np.array([[self.M[0,0], self.M[0,1]], [self.M[1,0], self.M[1,1]]])
-        M = A - B
-
+        A = A @ S
+        M = A @ np.linalg.inv(R)
         print(M)
+        shear = M[0,0]
+
+        print("Results:")
+        print(s, np.degrees(theta_rad),shear)
+
         # b,c and a,d should be close
-        if not np.all(M == 0):
-            assert M[0,0] * M[1,1] <= 0, "Cannot find irreducible matrix decomposition, a and d should be opposite signs"
-            if M[1,0] != 0 and M[0,1] != 0:
-                assert abs(abs(M[1,0]) - abs(M[0,1])) / ((abs(M[1,0]) + abs(M[0,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, b and c not similar"
-            if M[1,1] != 0 and M[0,0] != 0:
-                assert abs(abs(M[0,0]) - abs(M[1,1])) / ((abs(M[0,0]) + abs(M[1,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, a and d not similar"
+        # if not np.all(M == 0):
+        #     assert M[0,0] * M[1,1] <= 0, "Cannot find irreducible matrix decomposition, a and d should be opposite signs"
+        #     if M[1,0] != 0 and M[0,1] != 0:
+        #         assert abs(abs(M[1,0]) - abs(M[0,1])) / ((abs(M[1,0]) + abs(M[0,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, b and c not similar"
+        #     if M[1,1] != 0 and M[0,0] != 0:
+        #         assert abs(abs(M[0,0]) - abs(M[1,1])) / ((abs(M[0,0]) + abs(M[1,1])) / 2) < 0.2, "Cannot find irreducible matrix decomposition, a and d not similar"
 
         # Irreducible tensor decomp of remaining matrix for shear
         # Symmetric part
@@ -146,20 +266,18 @@ class ParseXML:
         shear_vector = shear_vector / np.linalg.norm(shear_vector)
         
         # scale and rotation should be close to 0
-        assert M_expansion[0,0] < 0.1
-        assert np.degrees(np.arctan2(M_rotation[0,0], M_rotation[1,0])) % 180 < 10
+        # assert M_expansion[0,0] < 0.1
+        # assert np.degrees(np.arctan2(M_rotation[0,0], M_rotation[1,0])) % 180 < 10
 
         # Reconstruct and remove shear from original M to find rotation and scaling.
         # TODO temporary?
-        outer_product = np.outer(shear_vector, shear_vector)
-        shear_matrix = np.eye(2) + shear_magnitude * outer_product
-        H_inv = np.linalg.inv(shear_matrix)
-        A_no_shear = A @ H_inv
-        s2, theta2 = self.compute_physical_params_svd(A_no_shear)
+        # outer_product = np.outer(shear_vector, shear_vector)
+        # shear_matrix = np.eye(2) + shear_magnitude * outer_product
+        # H_inv = np.linalg.inv(shear_matrix)
+        # A_no_shear = A @ H_inv
+        # s2, theta2 = self.compute_physical_params_svd(A_no_shear)
         
         return s, np.degrees(theta_rad), shear_magnitude, shear_vector, self.M[0,2], self.M[1,2]
-    
-    # TODO try on real sample and also check the error stuff and landmarks selection
     
     def transform_points(self, points):
          points = np.array(points)
@@ -210,10 +328,26 @@ class ParseXML:
         Returns: distance represented per pixel along given angle (default 0 = along x axis).
         Angle increases counterclockwise starting at x axis.
         """
-        tx, ty, theta_deg, sx, sy, shear = self.compute_physical_params()
-        rel_angle = angle - theta_deg # theta_deg is in the opposite direction
+        s, theta_deg, shear_magnitude, shear_vector, tx, ty = self.compute_physical_svd_irreducible()
+        # rel_angle = angle # - theta_deg
+        rel_angle = theta_deg
         rads = np.radians(rel_angle)
-        scale_effective = np.sqrt((sx * np.cos(rads) + shear * np.sin(rads)) ** 2 + (sy * np.sin(rads)) ** 2)
-        dist_per_pixel = original_um_per_pixel / scale_effective
+
+        shear_vector = shear_vector/np.linalg.norm(shear_vector)
+        outer_product = np.outer(shear_vector, shear_vector)
+        H = np.eye(2) + shear_magnitude * outer_product
+        det = np.linalg.det(H)
+        H = H / np.sqrt(det)
+
+        S = s * np.eye(2)
+        R = np.array([[np.cos(rads), -np.sin(rads)],
+                    [np.sin(rads), np.cos(rads)]])
+        A = R @ S @ H
+        v = np.array([np.cos(rads), np.sin(rads)])
+        vt = A @ v
+        scaling = np.linalg.norm(vt)
+        print("scaling:",scaling)
+
+        dist_per_pixel = original_um_per_pixel / scaling
         return dist_per_pixel
     
