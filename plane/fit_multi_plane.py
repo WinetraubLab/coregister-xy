@@ -4,6 +4,7 @@ class FitMultiPlane:
         """
         - list of barcodes contained in object
             - contains self.scale, self.theta_deg, self.shear_magnitude, self.shear_vector, self.tx, self.ty, self.z
+            - Real positions of each barcode center as defined by photobleach script
         - Adjacency matrix to store distances between pairs of barcodes.
         - ??? to store angles between 3 barcodes for xy, xz, yz planes 
         """
@@ -31,4 +32,10 @@ class FitMultiPlane:
         pass
 
     def calc_angles_yz(self):
+        pass
+
+    def fit_best_plane(self):
+        """
+        Return a single best fit plane for all given barcodes
+        """
         pass
