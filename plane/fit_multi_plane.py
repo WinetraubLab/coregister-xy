@@ -1,3 +1,5 @@
+import numpy as np
+from parse_xml import ParseXML
 
 class FitMultiPlane:
     def __init__(self):
