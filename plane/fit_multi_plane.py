@@ -48,7 +48,13 @@ class FitMultiPlane:
         """
         Convert Fitplane centers in pixels to distance in um, and add z coordinate for each.
         """
-        pass
+        centers  = [(project.tx + self.template_size/2, project.ty + self.template_size/2) for project in self.fitplanes]
+        centers = np.array(centers)
+        avgscale = np.mean([project.scale for project in self.fitplanes])
+        centers = centers * (self.um_per_pixel / avgscale) # convert fluorescent units from pixels to um
+        zs = np.array([project.z for project in self.fitplanes])
+        centers_z = np.column_stack((centers, zs))
+        return centers_z
 
     def fit_mapping_to_xy(self):
         """
