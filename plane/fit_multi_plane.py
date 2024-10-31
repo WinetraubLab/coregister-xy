@@ -18,6 +18,9 @@ class FitMultiPlane:
         self.um_per_pixel = um_per_pixel
         self.fitplane_centers = self.calc_fitplane_centers() # in um
         self.distances = self.calc_distances() # in um
+        self.u = None
+        self.v = None
+        self.h = None
 
     @classmethod
     def from_aligned_fitplanes(cls, fitplanes_list, real_centers_list, template_size=401, um_per_pixel=2):
@@ -36,6 +39,27 @@ class FitMultiPlane:
 
     def __len__(self):
         return len(self.fitplanes)
+    
+    def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
+        """ Check u,v assumptions """
+        
+        # Skip
+        if skip_value_cheks:
+            return
+    
+        # Check u and v are orthogonal and have the same norm
+        if not (np.abs(self.u_norm_mm() - self.v_norm_mm())/self.v_norm_mm() < 0.05):
+            raise ValueError('u and v should have the same norm')
+        if not (np.dot(self.u,self.v)/(self.u_norm_mm()*self.v_norm_mm()) < 0.05):
+            raise ValueError('u must be orthogonal to v')
+        
+        # Check that u vec is more or less in the x-y plane
+        min_ratio = 0.15
+        slope = abs(self.u[2]) / np.linalg.norm(self.u[:2])
+        if not ( slope < min_ratio):
+            raise ValueError(
+                'Make sure that tissue surface is parallel to x axis. Slope is %.2f (%.0f deg) which is higher than target <%.2f slope'
+                % (slope, np.degrees(np.arcsin(slope)),min_ratio))
     
     def calc_distances(self):
         """
@@ -62,7 +86,90 @@ class FitMultiPlane:
         UVH mapping: for a point (u,v,z') on the sliced tissue, [x,y,z] = vec_u * u + vec_v * v + vec_h
         Prints and returns vectors U, V, and H.
         """
-        pass
+        u = np.array([x[0] for x in self.fitplane_centers])
+        v = np.array([x[1] for x in self.fitplane_centers])
+
+        x = np.array([x[0] for x in self.real_centers])
+        y = np.array([x[1] for x in self.real_centers])
+        z = np.ones_like(y)
+
+        # Number of points
+        n = u.shape[0]
+
+        A = np.zeros((3 * n, 9))
+        for i in range(n):
+            A[3 * i] = [u[i], v[i], 1, 0, 0, 0, 0, 0, 0]      # x equation
+            A[3 * i + 1] = [0, 0, 0, u[i], v[i], 1, 0, 0, 0]  # y equation
+            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u[i], v[i], 1]  # z equation
+
+        # Output vector b
+        b = np.zeros(3 * n)
+        for i in range(n):
+            b[3 * i] = x[i]
+            b[3 * i + 1] = y[i]
+            b[3 * i + 2] = z[i]
+
+        # Solve using least squares
+        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) # TODO check that lol
+        ux, vx, hx, uy, vy, hy, uz, vz, hz = M
+
+        self.u = np.array([ux, uy, uz])
+        self.v = np.array([vx, vy, vz])
+        self.h = np.array([hx, hy, hz])
+
+        return self.u, self.v, self.h
+
+    def get_xyz_from_uv(self, point_pix):
+        """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
+        u_pix = point_pix[0]
+        v_pix = point_pix[1]
+        return (self.u*u_pix + self.v*v_pix + self.h)
+    
+    def get_uv_from_xyz(self, point_mm):
+        """ Get the u,v coordinates on an image from a point in space, if point is outside the plane, return the u,v of the closest point. point_mm is a 3D numpy array or array """
+	
+        point_mm = np.array(point_mm)        
+
+        # Assuming u is orthogonal to v (as it should) for this function to work
+        self._check_u_v_consistency_assumptions()
+        
+        u_hat = self.u_direction()
+        u_norm = self.u_norm_mm()
+        u_pix = np.dot(point_mm-self.h,u_hat)/u_norm
+        
+        v_hat = self.v_direction()
+        v_norm = self.v_norm_mm()
+        v_pix = np.dot(point_mm-self.h,v_hat)/v_norm
+        
+        return np.array([u_pix, v_pix])
+    
+    def u_norm_mm(self):
+        """ Return the size of pixel u in mm """
+        return np.linalg.norm(self.u)
+    
+    def v_norm_mm(self):
+        """ Return the size of pixel v in mm """
+        return np.linalg.norm(self.v)
+    
+    def u_direction(self):
+        """ Return a unit vector in the direction of u """
+        return self.u / self.u_norm_mm()
+        
+    def v_direction(self):
+        """ Return a unit vector in the direction of v """
+        return self.v / self.v_norm_mm()
+        
+    def normal_direction(self):
+        """ Return a unit vector in the direction of the normal """
+        return np.cross(self.u_direction(), self.v_direction())
+        
+    def get_plane_equation(self):
+        """ Convert u,v,h to a plane equation ax+by+cz-d=0.
+        a,b,c are unitless and normalized a^2+b^2+c^2=1 and d has units of mm """
+        normal_vec = self.normal_direction()
+        a, b, c = normal_vec
+        d = -np.dot(normal_vec, self.h)
+        return a,b,c,d
 
     def print_single_plane_stats(self):
         """

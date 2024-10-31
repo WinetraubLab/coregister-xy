@@ -36,3 +36,14 @@ class TestFitMultiPlane(unittest.TestCase):
         fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
         fmp.print_single_plane_stats()
        
+    def test_fit_mapping(self):
+        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
+        # set known values
+        fmp.fitplane_centers = np.array([[0,0,0], [0,10,0], [10,0,0]])
+        fmp.real_centers = np.array([[1,2,0], [41,62,50], [21,32,40]])
+
+        u,v,h = fmp.fit_mapping_to_xy()
+        
+        a = fmp.get_xyz_from_uv([0,10,0])
+        self.assertAlmostEqual(a[0], 41)
+        self.assertAlmostEqual(a[1], 62)
