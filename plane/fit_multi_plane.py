@@ -69,7 +69,38 @@ class FitMultiPlane:
         Prints stats for each FitPlane as a table: shrinkage, rotation, shear, and mean/stdev for each
         Units: um
         """
-        pass
+        num_templates = len(self)
+        projects_data = {
+        "Template ID": [i for i in range(1, num_templates+1)],
+        "Patch Number": [project.template_id for project in self.fitplanes],
+        "Z (um)": [project.z for project in self.fitplanes],
+        "Center (x)": [project.tx + self.template_size/2 for project in self.fitplanes],
+        "Center (y)": [project.ty + self.template_size/2 for project in self.fitplanes],
+        "Rotation (deg)": [project.theta_deg for project in self.fitplanes],
+        "Scaling": [project.scale for project in self.fitplanes],
+        "Shear magnitude": [project.shear_magnitude for project in self.fitplanes],
+        "Shear vector (x)": [project.shear_vector[0] for project in self.fitplanes],
+        "Shear vector (y)": [project.shear_vector[1] for project in self.fitplanes]
+        }
+
+        columns_to_summarize = ["Z (um)", "Rotation (deg)", "Scaling", "Shear magnitude", "Shear vector (x)", "Shear vector (y)"]
+
+        # Create DataFrame
+        df = pd.DataFrame(projects_data)
+
+        # Compute mean and standard deviation for selected columns only
+        mean_row = df[columns_to_summarize].mean()
+        std_row = df[columns_to_summarize].std()
+
+        # Append mean and std as new rows for selected columns only
+        summary_df = df.copy()
+        summary_df.loc['Mean', columns_to_summarize] = mean_row
+        summary_df.loc['StDev', columns_to_summarize] = std_row
+        summary_df = summary_df.round(2)
+        summary_df = summary_df.replace(np.nan, '', regex=True)
+
+        print("Stats for individual barcodes:\n")
+        print(summary_df)
 
     def project_centers_onto_flat_plane(self):
         """

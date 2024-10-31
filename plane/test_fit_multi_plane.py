@@ -32,4 +32,7 @@ class TestFitMultiPlane(unittest.TestCase):
         self.assertAlmostEqual(centers[1][0]*2, um_centers[1][0])
         self.assertAlmostEqual(centers[2][1]*2, um_centers[2][1])
 
+    def test_print_stats(self):
+        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
+        fmp.print_single_plane_stats()
        
