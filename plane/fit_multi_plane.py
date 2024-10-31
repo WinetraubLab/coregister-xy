@@ -40,27 +40,6 @@ class FitMultiPlane:
     def __len__(self):
         return len(self.fitplanes)
     
-    def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
-        """ Check u,v assumptions """
-        
-        # Skip
-        if skip_value_cheks:
-            return
-    
-        # Check u and v are orthogonal and have the same norm
-        if not (np.abs(self.u_norm_mm() - self.v_norm_mm())/self.v_norm_mm() < 0.05):
-            raise ValueError('u and v should have the same norm')
-        if not (np.dot(self.u,self.v)/(self.u_norm_mm()*self.v_norm_mm()) < 0.05):
-            raise ValueError('u must be orthogonal to v')
-        
-        # Check that u vec is more or less in the x-y plane
-        min_ratio = 0.15
-        slope = abs(self.u[2]) / np.linalg.norm(self.u[:2])
-        if not ( slope < min_ratio):
-            raise ValueError(
-                'Make sure that tissue surface is parallel to x axis. Slope is %.2f (%.0f deg) which is higher than target <%.2f slope'
-                % (slope, np.degrees(np.arcsin(slope)),min_ratio))
-    
     def calc_distances(self):
         """
         Set adjacency matrix for the list of barcodes given, using their tx ty params.
@@ -124,44 +103,6 @@ class FitMultiPlane:
         u_pix = point_pix[0]
         v_pix = point_pix[1]
         return (self.u*u_pix + self.v*v_pix + self.h)
-    
-    def get_uv_from_xyz(self, point_mm):
-        """ Get the u,v coordinates on an image from a point in space, if point is outside the plane, return the u,v of the closest point. point_mm is a 3D numpy array or array """
-	
-        point_mm = np.array(point_mm)        
-
-        # Assuming u is orthogonal to v (as it should) for this function to work
-        self._check_u_v_consistency_assumptions()
-        
-        u_hat = self.u_direction()
-        u_norm = self.u_norm_mm()
-        u_pix = np.dot(point_mm-self.h,u_hat)/u_norm
-        
-        v_hat = self.v_direction()
-        v_norm = self.v_norm_mm()
-        v_pix = np.dot(point_mm-self.h,v_hat)/v_norm
-        
-        return np.array([u_pix, v_pix])
-    
-    def u_norm_mm(self):
-        """ Return the size of pixel u in mm """
-        return np.linalg.norm(self.u)
-    
-    def v_norm_mm(self):
-        """ Return the size of pixel v in mm """
-        return np.linalg.norm(self.v)
-    
-    def u_direction(self):
-        """ Return a unit vector in the direction of u """
-        return self.u / self.u_norm_mm()
-        
-    def v_direction(self):
-        """ Return a unit vector in the direction of v """
-        return self.v / self.v_norm_mm()
-        
-    def normal_direction(self):
-        """ Return a unit vector in the direction of the normal """
-        return np.cross(self.u_direction(), self.v_direction())
         
     def get_plane_equation(self):
         """ Convert u,v,h to a plane equation ax+by+cz-d=0.
