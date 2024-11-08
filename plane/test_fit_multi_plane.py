@@ -15,10 +15,10 @@ class TestFitMultiPlane(unittest.TestCase):
         fp3 = ParseXML.from_imagej_xml(tk_filepath, 8, 17, 56, None, True)
 
         self.fp_list = [fp1, fp2, fp3]
-        self.real_centers_list = [[0,1000], [1000, 1000], [0, 0]]
+        self.target_centers_list = [[0,1000], [1000, 1000], [0, 0]]
 
     def test_main_function_runs(self):
-        f = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
+        f = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
 
     def test_calc_fitplane_centers(self):
         tk_filepath = "plane/test_vectors/align3_int.xml"
@@ -26,21 +26,21 @@ class TestFitMultiPlane(unittest.TestCase):
         fp2 = ParseXML.from_imagej_xml(tk_filepath, 8, 14, 52, None, True)
         fp3 = ParseXML.from_imagej_xml(tk_filepath, 8, 17, 56, None, True)
         fp_list = [fp1, fp2, fp3]
-        fmp = FitMultiPlane.from_aligned_fitplanes(fp_list, self.real_centers_list, template_size=0, um_per_pixel=4)
+        fmp = FitMultiPlane.from_aligned_fitplanes(fp_list, self.target_centers_list, template_size=0, um_per_pixel=4)
         centers  = [(project.tx + fmp.template_size/2, project.ty + fmp.template_size/2) for project in fmp.fitplanes]
         um_centers = fmp.calc_fitplane_centers()
         self.assertAlmostEqual(centers[1][0]*2, um_centers[1][0])
         self.assertAlmostEqual(centers[2][1]*2, um_centers[2][1])
 
     def test_print_stats(self):
-        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
+        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
         fmp.get_single_template_stats()
        
     def test_fit_mapping(self):
-        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
+        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
         # set known values
         fmp.fitplane_centers = np.array([[0,0,0], [0,10,0], [10,0,0]])
-        fmp.real_centers = np.array([[1,2,0], [41,62,50], [21,32,40]])
+        fmp.target_centers = np.array([[1,2,0], [41,62,50], [21,32,40]])
 
         u,v,h = fmp.fit_mapping_to_xy()
         

@@ -4,52 +4,50 @@ from plane.parse_xml import ParseXML
 import pandas as pd
 
 class FitMultiPlane:
-    def __init__(self, fitplanes, real_centers, template_size, um_per_pixel):
-        """
-        - list of barcodes contained in object
-            - contains self.scale, self.theta_deg, self.shear_magnitude, self.shear_vector, self.tx, self.ty, self.z
-            - Real positions of each barcode center as defined by photobleach script
-        - Adjacency matrix to store distances between pairs of barcodes.
-        - ??? to store angles between 3 barcodes for xy, xz, yz planes 
-        """
+    def __init__(self, fitplanes, target_centers, template_size, um_per_pixel):
         self.fitplanes = fitplanes
-        self.real_centers = real_centers # in um
+        self.target_centers = target_centers # in um
         self.template_size = template_size
         self.um_per_pixel = um_per_pixel
         self.fitplane_centers = self.calc_fitplane_centers() # in um
-        self.distances = self.calc_distances() # in um
+        self.distances = self.set_adjacency_matrix() # in um
         self.u = None
         self.v = None
         self.h = None
 
     @classmethod
-    def from_aligned_fitplanes(cls, fitplanes_list, real_centers_list, template_size=401, um_per_pixel=2):
+    def from_aligned_fitplanes(cls, fitplanes_list, target_centers_list, template_size=401, um_per_pixel=2):
         """
         Function to calculate/store the params for individual barcodes and combinations of barcodes. 
-            - Individual barcodes: xy center position, rotation angle on xy plane, shear, scaling
-            - Distances and angles between barcodes
 
-        Inputs:
-            - fitplanes: array-like of fitted planes (ParseXML objects)
-            - real_centers: array-like with the locations of the landmarks as defined by photobleach script
-            - template_size: square edge dimension of the template in pixels
-            - um_per_pixel: number of um represented in each pixel by the template image
+        :param fit_templates_list: list of barcodes contained in this FitPlane. Each is a FitTemplate object.
+        :param target_centers_list: theoretical positions of each barcode center as defined by photobleach script.
+        :param template_size: square edge length of the template image used for alignment in each FitTemplate, in pixels.
+        :param um_per_pixel: um per pixel in the template image.
+        :returns: Initializes an instance of a FitPlane.
         """
-        return cls(fitplanes_list, real_centers_list, template_size, um_per_pixel)
+        return cls(fitplanes_list, target_centers_list, template_size, um_per_pixel)
 
     def __len__(self):
         return len(self.fitplanes)
     
-    def calc_distances(self):
+    def set_adjacency_matrix(self):
         """
         Set adjacency matrix for the list of barcodes given, using their tx ty params.
         Units are in um.
+        :returns: adjacency matrix representing distances in um between each pair of barcodes.
         """
-        pass
+        n = len(self.landmarks)
+        adj = np.zeros((n,n))
+        for i in range(0, n):
+            for j in range(0,n):
+                dist = np.sqrt((self.landmarks[i].tx - self.landmarks[j].tx)**2 + (self.landmarks[i].ty - self.landmarks[j].ty)**2)
+                adj[i,j] = dist
+        return adj
 
     def calc_fitplane_centers(self):
         """
-        Convert Fitplane centers in pixels to distance in um, and add z coordinate for each.
+        :returns: FitTemplate centers in um, with z coordinate.
         """
         centers  = [(project.tx + self.template_size/2, project.ty + self.template_size/2) for project in self.fitplanes]
         centers = np.array(centers)
@@ -63,14 +61,15 @@ class FitMultiPlane:
         """
         Calculate a mapping to project pixels from the angled tissue slice onto a flat plane (match with the photobleach template).
         UVH mapping: for a point (u,v,z') on the sliced tissue, [x,y,z] = vec_u * u + vec_v * v + vec_h
-        Prints and returns vectors U, V, and H.
-        """
-        u = np.array([x[0] for x in self.fitplane_centers])
-        v = np.array([x[1] for x in self.fitplane_centers])
 
-        x = np.array([x[0] for x in self.real_centers])
-        y = np.array([x[1] for x in self.real_centers])
-        z = np.ones_like(y)
+        :returns: vectors U, V, and H.
+        """
+        u = np.array([x[0] for x in self.target_centers])
+        v = np.array([x[1] for x in self.target_centers])
+
+        x = np.array([x[0] for x in self.target_centers])
+        y = np.array([x[1] for x in self.target_centers])
+        z = np.array([x[2] for x in self.fitplane_centers])
 
         # Number of points
         n = u.shape[0]
@@ -89,7 +88,7 @@ class FitMultiPlane:
             b[3 * i + 2] = z[i]
 
         # Solve using least squares
-        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) # TODO check that lol
+        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) 
         ux, vx, hx, uy, vy, hy, uz, vz, hz = M
 
         self.u = np.array([ux, uy, uz])
@@ -107,7 +106,8 @@ class FitMultiPlane:
     def get_plane_equation(self):
         """ Convert u,v,h to a plane equation ax+by+cz-d=0.
         a,b,c are unitless and normalized a^2+b^2+c^2=1 and d has units of mm """
-        normal_vec = self.normal_direction()
+        cross = np.cross(self.u, self.v)
+        normal_vec = cross / np.linalg.norm(cross)
         a, b, c = normal_vec
         d = -np.dot(normal_vec, self.h)
         return a,b,c,d
@@ -131,7 +131,7 @@ class FitMultiPlane:
         "Shear vector (y)": [project.shear_vector[1] for project in self.fitplanes]
         }
 
-        columns_to_summarize = ["Z (um)", "Rotation (deg)", "Scaling", "Shear magnitude", "Shear vector (x)", "Shear vector (y)"]
+        columns_to_summarize = ["Z (um)", "Rotation (deg)", "Scaling", "Shear magnitude", "Shear unit vector (x)", "Shear unit vector (y)"]
 
         # Create DataFrame
         df = pd.DataFrame(projects_data)
