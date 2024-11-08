@@ -102,7 +102,8 @@ class FitMultiPlane:
         """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
         u_pix = point_pix[0]
         v_pix = point_pix[1]
-        return (self.u*u_pix + self.v*v_pix + self.h)
+        z_pix = point_pix[2]
+        return (self.u*u_pix + self.v*v_pix + self.h*z_pix)
         
     def get_plane_equation(self):
         """ Convert u,v,h to a plane equation ax+by+cz-d=0.
@@ -112,6 +113,43 @@ class FitMultiPlane:
         a, b, c = normal_vec
         d = -np.dot(normal_vec, self.h)
         return a,b,c,d
+    
+    def avg_in_plane_projection_error(self, uv, xyz):
+        """
+        :param xyz: list of points in physical space.
+        :param uv: list of points in u,v coordinate system.
+        :returns: the average in-plane error, ignoring z coordinate.
+        """
+        xyz = np.array(xyz)
+        uv = np.array(uv)
+        if len(xyz.shape) == 1:
+            xyz = np.expand_dims(xyz, axis=0)
+            uv = np.expand_dims(uv, axis=0)
+
+        transformed_uv = np.apply_along_axis(self.get_xyz_from_uv, 1, uv)
+        transformed_uv = transformed_uv[:, :2]
+        xyz = xyz[:, :2]
+        distances = np.linalg.norm(transformed_uv - xyz, axis=1)
+        err = np.mean(distances)
+        return err
+    
+    def avg_out_of_plane_projection_error(self, uv, xyz):
+        """
+        :param xyz: list of points in physical space.
+        :param uv: list of points in u,v coordinate system.
+        :returns: the average out of plane error, ignoring xy error.
+        """
+        xyz = np.array(xyz)
+        uv = np.array(uv)
+        if len(xyz.shape) == 1:
+            xyz = np.expand_dims(xyz, axis=0)
+            uv = np.expand_dims(uv, axis=0)
+        transformed_uv = np.apply_along_axis(self.get_xyz_from_uv, 1, uv)
+        transformed_uv = transformed_uv[:, -1]
+        xyz = xyz[:, -1]
+        print(xyz.shape)
+        err = np.mean(transformed_uv - xyz)
+        return err
 
     def get_single_template_stats(self):
         """
@@ -149,18 +187,3 @@ class FitMultiPlane:
         summary_df = summary_df.replace(np.nan, '', regex=True)
 
         return summary_df
-
-    def project_centers_onto_flat_plane(self):
-        """
-        Project each (u, v, z') pair from the barcode centers on an angled tissue slice onto a flat xy plane using the 
-        vectors UVH from fit_mapping_to_xy. Z for the flat plane is 0.
-        Returns: array-like of transformed points.
-        """
-        pass
-    
-    def compute_avg_projection_error(a, b):
-        """
-        Returns the mean distance between points in arrays a and b, for evaluating best-fit calculated projection.
-        Ignores z coordinate.
-        """
-        pass
