@@ -34,7 +34,7 @@ class TestFitMultiPlane(unittest.TestCase):
 
     def test_print_stats(self):
         fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)
-        fmp.print_single_plane_stats()
+        fmp.get_single_template_stats()
        
     def test_fit_mapping(self):
         fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.real_centers_list, template_size=401, um_per_pixel=2)

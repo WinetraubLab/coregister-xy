@@ -112,7 +112,7 @@ class FitMultiPlane:
         d = -np.dot(normal_vec, self.h)
         return a,b,c,d
 
-    def print_single_plane_stats(self):
+    def get_single_template_stats(self):
         """
         Prints stats for each FitPlane as a table: shrinkage, rotation, shear, and mean/stdev for each
         Units: um
@@ -147,8 +147,7 @@ class FitMultiPlane:
         summary_df = summary_df.round(2)
         summary_df = summary_df.replace(np.nan, '', regex=True)
 
-        print("Stats for individual barcodes:\n")
-        print(summary_df)
+        return summary_df
 
     def project_centers_onto_flat_plane(self):
         """
