@@ -79,4 +79,3 @@ class TestFitMultiPlane(unittest.TestCase):
         out_of_plane_error = fmp.avg_out_of_plane_projection_error(fmp.fitplane_centers, fmp.target_centers)
         e = np.mean([-3, 2, -1, 1])
         self.assertAlmostEqual(e, out_of_plane_error)
-

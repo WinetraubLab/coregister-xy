@@ -114,14 +114,14 @@ class FitMultiPlane:
         d = -np.dot(normal_vec, self.h)
         return a,b,c,d
     
-    def avg_in_plane_projection_error(self, uv, xyz):
+    def avg_in_plane_projection_error(self):
         """
         :param xyz: list of points in physical space.
         :param uv: list of points in u,v coordinate system.
         :returns: the average in-plane error, ignoring z coordinate.
         """
-        xyz = np.array(xyz)
-        uv = np.array(uv)
+        xyz = np.array(self.target_centers)
+        uv = np.array(self.fitplane_centers)
         if len(xyz.shape) == 1:
             xyz = np.expand_dims(xyz, axis=0)
             uv = np.expand_dims(uv, axis=0)
@@ -133,14 +133,14 @@ class FitMultiPlane:
         err = np.mean(distances)
         return err
     
-    def avg_out_of_plane_projection_error(self, uv, xyz):
+    def avg_out_of_plane_projection_error(self):
         """
         :param xyz: list of points in physical space.
         :param uv: list of points in u,v coordinate system.
         :returns: the average out of plane error, ignoring xy error.
         """
-        xyz = np.array(xyz)
-        uv = np.array(uv)
+        xyz = np.array(self.target_centers)
+        uv = np.array(self.fitplane_centers)
         if len(xyz.shape) == 1:
             xyz = np.expand_dims(xyz, axis=0)
             uv = np.expand_dims(uv, axis=0)
