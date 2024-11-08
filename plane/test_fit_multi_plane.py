@@ -36,16 +36,43 @@ class TestFitMultiPlane(unittest.TestCase):
         fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
         fmp.get_single_template_stats()
        
-    # def test_fit_mapping(self):
+    def test_fit_mapping(self):
+        fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
+        # set known values
+        fmp.fitplane_centers = np.array([[1,2,3], [2,2,3], [1,3,3]])
+        fmp.target_centers = np.array([[1,2,3], [2,2,3], [1,3,3]])
+
+        u,v,h = fmp.fit_mapping_to_xy()
+        print(u,v,h)
+        self.assertAlmostEqual(u[0], 1)
+        self.assertAlmostEqual(u[1], 0)
+        self.assertAlmostEqual(v[0], 0)
+        self.assertAlmostEqual(v[1], 1)
+        self.assertAlmostEqual(h[2], 1)
+
+    # def test_fit_mapping_2(self):
     #     fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
     #     # set known values
-    #     fmp.fitplane_centers = np.array([[0,0,0], [0,10,0], [10,0,0]])
-    #     fmp.target_centers = np.array([[1,2,0], [41,62,50], [21,32,40]])
+    #     fmp.fitplane_centers = np.array([[0,0,3], [10,0,4], [0,10,5]])
+    #     fmp.target_centers = np.array([[0,1,3], [10,1,4], [0,11,5]])
 
     #     u,v,h = fmp.fit_mapping_to_xy()
         
-    #     a = fmp.get_xyz_from_uv([0,10,0])
-    #     self.assertAlmostEqual(a[0], 41)
-    #     self.assertAlmostEqual(a[1], 62)
+    #     a = fmp.get_xyz_from_uv([0,10,5])
+    #     print(a)
+    #     self.assertAlmostEqual(a[0], 1)
+    #     self.assertAlmostEqual(a[1], 14)
     
-    # TODO new mapping test case
+    # def test_fit_mapping_approx(self):
+    #     fmp = FitMultiPlane.from_aligned_fitplanes(self.fp_list, self.target_centers_list, template_size=401, um_per_pixel=2)
+    #     # set known values
+    #     fmp.fitplane_centers = np.array([[0,0,3], [10,0,4], [0,10,5], [5,5,4]])
+    #     fmp.target_centers = np.array([[2,4,3], [12,2,4], [1,14,5], [6,5,4]])
+
+    #     u,v,h = fmp.fit_mapping_to_xy()
+        
+    #     a = fmp.get_xyz_from_uv([0,10,5])
+    #     print(a)
+    #     self.assertAlmostEqual(a[0], 1)
+    #     self.assertAlmostEqual(a[1], 14)
+    

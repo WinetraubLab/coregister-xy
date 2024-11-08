@@ -64,8 +64,9 @@ class FitMultiPlane:
 
         :returns: vectors U, V, and H.
         """
-        u = np.array([x[0] for x in self.target_centers])
-        v = np.array([x[1] for x in self.target_centers])
+        u = np.array([x[0] for x in self.fitplane_centers])
+        v = np.array([x[1] for x in self.fitplane_centers])
+        w = np.array([x[2] for x in self.fitplane_centers])
 
         x = np.array([x[0] for x in self.target_centers])
         y = np.array([x[1] for x in self.target_centers])
@@ -76,9 +77,9 @@ class FitMultiPlane:
 
         A = np.zeros((3 * n, 9))
         for i in range(n):
-            A[3 * i] = [u[i], v[i], 1, 0, 0, 0, 0, 0, 0]      # x equation
-            A[3 * i + 1] = [0, 0, 0, u[i], v[i], 1, 0, 0, 0]  # y equation
-            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u[i], v[i], 1]  # z equation
+            A[3 * i] = [u[i], v[i], w[i], 0, 0, 0, 0, 0, 0]      # x equation
+            A[3 * i + 1] = [0, 0, 0, u[i], v[i], w[i], 0, 0, 0]  # y equation
+            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u[i], v[i], w[i]]  # z equation
 
         # Output vector b
         b = np.zeros(3 * n)
