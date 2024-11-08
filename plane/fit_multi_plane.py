@@ -37,11 +37,11 @@ class FitMultiPlane:
         Units are in um.
         :returns: adjacency matrix representing distances in um between each pair of barcodes.
         """
-        n = len(self.landmarks)
+        n = len(self.fitplanes)
         adj = np.zeros((n,n))
         for i in range(0, n):
             for j in range(0,n):
-                dist = np.sqrt((self.landmarks[i].tx - self.landmarks[j].tx)**2 + (self.landmarks[i].ty - self.landmarks[j].ty)**2)
+                dist = np.sqrt((self.fitplanes[i].tx - self.fitplanes[j].tx)**2 + (self.fitplanes[i].ty - self.fitplanes[j].ty)**2)
                 adj[i,j] = dist
         return adj
 
@@ -127,8 +127,8 @@ class FitMultiPlane:
         "Rotation (deg)": [project.theta_deg for project in self.fitplanes],
         "Scaling": [project.scale for project in self.fitplanes],
         "Shear magnitude": [project.shear_magnitude for project in self.fitplanes],
-        "Shear vector (x)": [project.shear_vector[0] for project in self.fitplanes],
-        "Shear vector (y)": [project.shear_vector[1] for project in self.fitplanes]
+        "Shear unit vector (x)": [project.shear_vector[0] for project in self.fitplanes],
+        "Shear unit vector (y)": [project.shear_vector[1] for project in self.fitplanes]
         }
 
         columns_to_summarize = ["Z (um)", "Rotation (deg)", "Scaling", "Shear magnitude", "Shear unit vector (x)", "Shear unit vector (y)"]
