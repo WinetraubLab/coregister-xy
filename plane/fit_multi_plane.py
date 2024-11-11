@@ -15,6 +15,10 @@ class FitMultiPlane:
         self.v = None
         self.h = None
 
+        p = np.array(self.target_centers)
+        p2 = np.hstack((p, np.expand_dims(self.fitplane_centers[:,-1], axis=1)))
+        self.best_fit_target_centers = self._find_points_projection_on_best_fit_plane(p2) # same as target_centers, but z values lie on plane of best fit
+
     @classmethod
     def from_aligned_fitplanes(cls, fitplanes_list, target_centers_list, template_size=401, um_per_pixel=2):
         """
@@ -30,6 +34,26 @@ class FitMultiPlane:
 
     def __len__(self):
         return len(self.fitplanes)
+    
+    def _find_points_projection_on_best_fit_plane(self, points):
+        """
+        Given a list of points (x, y, z), this function calculates the z' coordinate for each (x, y),
+        where z' is the z value on the best fit plane through these points.
+        :param points: A numpy array of shape (n, 3) containing points (x, y, z).
+        :returns: projected_points: An array of (x,y,z').
+        """
+        x = points[:, 0]
+        y = points[:, 1]
+        z = points[:, 2]
+        
+        # Calculate best fit plane coefficients using least squares
+        A = np.c_[x, y, np.ones(x.shape[0])]
+        coefficients, _, _, _ = np.linalg.lstsq(A, z, rcond=None)
+        a, b, c = coefficients
+        
+        # Calculate z' = ax + by + c for each (x, y)
+        z_prime = a * x + b * y + c
+        return np.column_stack([x,y,z_prime])
     
     def set_adjacency_matrix(self):
         """
@@ -139,7 +163,7 @@ class FitMultiPlane:
         :param uv: list of points in u,v coordinate system.
         :returns: the average out of plane error, ignoring xy error.
         """
-        xyz = np.array(self.target_centers)
+        xyz = np.array(self.best_fit_target_centers)
         uv = np.array(self.fitplane_centers)
         if len(xyz.shape) == 1:
             xyz = np.expand_dims(xyz, axis=0)
@@ -147,7 +171,6 @@ class FitMultiPlane:
         transformed_uv = np.apply_along_axis(self.get_xyz_from_uv, 1, uv)
         transformed_uv = transformed_uv[:, -1]
         xyz = xyz[:, -1]
-        print(xyz.shape)
         err = np.mean(transformed_uv - xyz)
         return err
 

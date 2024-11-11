@@ -61,7 +61,7 @@ class TestFitMultiPlane(unittest.TestCase):
         self.assertAlmostEqual(a[0], 0)
         self.assertAlmostEqual(a[1], 12)
 
-        inplane_error = fmp.avg_in_plane_projection_error(fmp.fitplane_centers, fmp.target_centers)
+        inplane_error = fmp.avg_in_plane_projection_error()
         self.assertAlmostEqual(inplane_error, 0) # 3 points, so it should be an exact mapping
     
     def test_fit_mapping_approx(self):
@@ -73,9 +73,9 @@ class TestFitMultiPlane(unittest.TestCase):
         u,v,h = fmp.fit_mapping_to_xy()        
         a = fmp.get_xyz_from_uv([0,10,3])
 
-        inplane_error = fmp.avg_in_plane_projection_error(fmp.fitplane_centers, fmp.target_centers)
+        inplane_error = fmp.avg_in_plane_projection_error()
         self.assertAlmostEqual(inplane_error, 0)      
 
-        out_of_plane_error = fmp.avg_out_of_plane_projection_error(fmp.fitplane_centers, fmp.target_centers)
+        out_of_plane_error = fmp.avg_out_of_plane_projection_error()
         e = np.mean([-3, 2, -1, 1])
         self.assertAlmostEqual(e, out_of_plane_error)
