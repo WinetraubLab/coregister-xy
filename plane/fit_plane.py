@@ -1,6 +1,5 @@
 import numpy as np
 from plane.fit_template import FitTemplate
-import pandas as pd
 
 class FitPlane:
     def __init__(self, uv_px, target_xyz_um, avg_fit_template_scale_factor, template_size, um_per_pixel):
@@ -8,7 +7,7 @@ class FitPlane:
         self.target_xyz_um = target_xyz_um # in um
         self.template_size = template_size
         self.um_per_pixel = um_per_pixel
-        self.uv_um = self.template_centers_px_to_um(avg_fit_template_scale_factor) # in um
+        self.uv_um = self._template_centers_px_to_um(avg_fit_template_scale_factor) # in um
         self.u = None
         self.v = None
         self.h = None
@@ -45,7 +44,7 @@ class FitPlane:
         """
         pass
 
-    def template_centers_px_to_um(self, avg_scale):
+    def _template_centers_px_to_um(self, avg_scale):
         """
         Converts an array-like of points from pixel positions to um.
 
