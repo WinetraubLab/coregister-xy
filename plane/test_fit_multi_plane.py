@@ -18,7 +18,7 @@ class TestFitPlane(unittest.TestCase):
       self.templates_px = []
       for i, fp in enumerate([fp1, fp2, fp3]):
         self.templates_px.append((fp.tx + self.template_size/2, fp.ty + self.template_size/2, fp_z_list[i]))
-      self.target_centers_list = [[0,1000], [1000, 1000], [0, 0]]
+      self.target_xyz_um_list = [[0,1000], [1000, 1000], [0, 0]]
 
     def test_main_function_runs(self):
-       FitPlane.from_aligned_fit_templates(self.templates_px, self.target_centers_list, self.avg_scale, template_size=self.template_size, um_per_pixel=2)
+       FitPlane.from_aligned_fit_templates(self.templates_px, self.target_xyz_um_list, self.avg_scale, template_size=self.template_size, um_per_pixel=2)
