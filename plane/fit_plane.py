@@ -3,13 +3,12 @@ from plane.fit_template import FitTemplate
 import pandas as pd
 
 class FitPlane:
-    def __init__(self, fitted_template_centers_px, target_centers, template_size, um_per_pixel):
+    def __init__(self, fitted_template_centers_px, target_centers, avg_fit_template_scale_factor, template_size, um_per_pixel):
         self.fitted_template_centers_px = fitted_template_centers_px
         self.target_centers = target_centers # in um
         self.template_size = template_size
         self.um_per_pixel = um_per_pixel
-        self.fitted_template_centers_um = self.template_centers_px_to_um() # in um
-        self.distances = self.find_distance_matrix() # in um
+        self.fitted_template_centers_um = self.template_centers_px_to_um(avg_fit_template_scale_factor) # in um
         self.u = None
         self.v = None
         self.h = None
@@ -19,17 +18,19 @@ class FitPlane:
         self.best_fit_target_centers = self._find_points_projection_on_best_fit_plane(p2) # z values lie on plane of best fit
 
     @classmethod
-    def from_aligned_fitplanes(cls, fitted_template_centers_px, target_centers_list, template_size=401, um_per_pixel=2):
+    def from_aligned_fit_templates(cls, fitted_template_centers_px, target_centers_list, avg_fit_template_scale_factor, template_size=401, um_per_pixel=2):
         """
         Function to calculate/store the params for individual barcodes and combinations of barcodes. 
 
-        :param fitted_template_centers_px: list of coordinate centers for fitted templates, in pixels.
+        :param fitted_template_centers_px: (u,v,w) list of coordinate centers for fitted templates. (u,v) are in pixels and w is the user-assigned z depth of each barcode.
         :param target_centers_list: coordinates where each barcode center should be, as defined by photobleach script. Units are in um.
+        :param avg_fit_template_scale_factor: average scaling factor across all fitted templates used for alignment. Used in the conversion
+            of units from pixels to um.
         :param template_size: square edge length of the template image used for alignment in each FitTemplate, in pixels.
         :param um_per_pixel: um per pixel in the template image.
         :returns: Initializes an instance of a FitPlane.
         """
-        return cls(fitted_template_centers_px, target_centers_list, template_size, um_per_pixel)
+        return cls(fitted_template_centers_px, target_centers_list, avg_fit_template_scale_factor, template_size, um_per_pixel)
 
     def __len__(self):
         return len(self.fitted_template_centers_px)
@@ -51,7 +52,12 @@ class FitPlane:
         :param avg_scale: Average scale factor to convert from pixels to um, calculated from the scale values stored in each fit_template object.
         :returns: FitTemplate centers in um, with z coordinate.
         """
-        pass
+        centers  = np.array(self.fitted_template_centers_px)[:,:-1]
+        centers = centers * (self.um_per_pixel / avg_scale) # convert fluorescent units from pixels to um
+
+        zs = np.array(self.fitted_template_centers_px)[:,-1]
+        centers_z = np.column_stack((centers, zs))
+        return centers_z
 
     def fit_mapping_uv_to_xyz(self):
         """
