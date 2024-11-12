@@ -1,72 +1,95 @@
 import numpy as np
-# from plane.fit_plane import FitPlane
 from plane.fit_template import FitTemplate
 import pandas as pd
 
 class FitPlane:
-    def __init__(self, fitplanes, target_centers, template_size, um_per_pixel):
-        self.fitplanes = fitplanes
-        self.real_centers = target_centers # in um
+    def __init__(self, fitted_template_centers_px, target_centers, template_size, um_per_pixel):
+        self.fitted_template_centers_px = fitted_template_centers_px
+        self.target_centers = target_centers # in um
         self.template_size = template_size
         self.um_per_pixel = um_per_pixel
-        self.fitplane_centers = self.calc_fitplane_centers() # in um
-        self.distances = self.calc_distances() # in um
+        self.fitted_template_centers_um = self.template_centers_px_to_um() # in um
+        self.distances = self.find_distance_matrix() # in um
+        self.u = None
+        self.v = None
+        self.h = None
+
+        # To find best fit plane:
+        p2 = np.hstack((np.array(self.target_centers), np.expand_dims(self.fitted_template_centers_um[:,-1], axis=1))) # add z coords to target centers
+        self.best_fit_target_centers = self._find_points_projection_on_best_fit_plane(p2) # z values lie on plane of best fit
 
     @classmethod
-    def from_aligned_fit_templates(cls, fit_templates_list, target_centers_list, template_size=401, um_per_pixel=2):
+    def from_aligned_fitplanes(cls, fitted_template_centers_px, target_centers_list, template_size=401, um_per_pixel=2):
         """
         Function to calculate/store the params for individual barcodes and combinations of barcodes. 
 
-        :param fit_templates_list: list of barcodes contained in this FitPlane. Each is a FitTemplate object.
-        :param target_centers_list: theoretical positions of each barcode center as defined by photobleach script.
+        :param fitted_template_centers_px: list of coordinate centers for fitted templates, in pixels.
+        :param target_centers_list: coordinates where each barcode center should be, as defined by photobleach script. Units are in um.
         :param template_size: square edge length of the template image used for alignment in each FitTemplate, in pixels.
         :param um_per_pixel: um per pixel in the template image.
         :returns: Initializes an instance of a FitPlane.
         """
-        return cls(fit_templates_list, target_centers_list, template_size, um_per_pixel)
+        return cls(fitted_template_centers_px, target_centers_list, template_size, um_per_pixel)
 
     def __len__(self):
-        return len(self.fitplanes)
+        return len(self.fitted_template_centers_px)
     
-    def calc_distances(self):
+    def _find_points_projection_on_best_fit_plane(self, points):
         """
-        Set adjacency matrix for the list of barcodes given, using their tx ty params.
-        Units are in um.
+        Use this function to calculate the (x, y, z') coordinate for each (x, y, z),
+        where z' lies on the best fit plane through these points.
+
+        :param points: A numpy array of shape (n, 3) containing points (x, y, z).
+        :returns: projected_points: An array of (x,y,z').
         """
         pass
 
-    def calc_fitplane_centers(self):
+    def template_centers_px_to_um(self, avg_scale):
         """
-        Convert Fitplane centers in pixels to distance in um, and add z coordinate for each.
+        Converts an array-like of points from pixel positions to um.
+
+        :param avg_scale: Average scale factor to convert from pixels to um, calculated from the scale values stored in each fit_template object.
+        :returns: FitTemplate centers in um, with z coordinate.
         """
         pass
 
-    def fit_from_photobleach(self):
+    def fit_mapping_uv_to_xyz(self):
         """
         Calculate a mapping to project pixels from the angled tissue slice onto a flat plane (match with the photobleach template).
-        UVH mapping: for a point (u,v,z') on the sliced tissue, [x,y,z] = vec_u * u + vec_v * v + vec_h
-        Prints and returns vectors U, V, and H.
+        UVH mapping: for a point (u,v,w) on the sliced tissue, [x,y,z] = vec_u * u + vec_v * v + vec_h
+
+        :returns: vectors U, V, and H.
         """
         pass
 
-    def print_single_plane_stats(self):
-        """
-        Prints stats for each FitPlane as a table: shrinkage, rotation, shear, and mean/stdev for each
-        Units: um
+    def get_xyz_from_uv(self, point_pix):
+        """ 
+        Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] 
+        
+        :returns: a single (x,y,z) point 
         """
         pass
 
-    def project_centers_onto_flat_plane(self):
+    def get_plane_equation(self):
+        """ 
+        Convert u,v,h to a plane equation ax+by+cz-d=0.
+        a,b,c are unitless and normalized a^2+b^2+c^2=1 and d has units of mm 
+
+        :returns: equation coefficients a, b, c, d
         """
-        Project each (u, v, z') pair from the barcode centers on an angled tissue slice onto a flat xy plane using the 
-        vectors UVH from fit_mapping_to_xy. Z for the flat plane is 0.
-        Returns: array-like of transformed points.
-        """
-        pass
     
-    def compute_avg_projection_error(a, b):
+    def avg_in_plane_projection_error(self):
         """
-        Returns the mean distance between points in arrays a and b, for evaluating best-fit calculated projection.
-        Ignores z coordinate.
+        Compute average error from projecting (u,v) points to (x,y).
+        
+        :returns: the average in-plane error, ignoring z error.
+        """
+        pass
+
+    def avg_out_of_plane_projection_error(self):
+        """
+        Compute average error between user-specified z coordinates and best fit plane z' coordinates for each (x,y).
+
+        :returns: the average out of plane error, ignoring xy error.
         """
         pass

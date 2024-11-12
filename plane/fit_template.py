@@ -3,16 +3,15 @@ import numpy as np
 from scipy.linalg import polar
 
 class FitTemplate:
-    def __init__(self, source_points=None, dest_points=None, M=None, z=0, template_id = None):
+    def __init__(self, source_points=None, dest_points=None, M=None, template_id = None):
         self.M = M # Transformation from source image to dest image coordinates
         self.source_points = source_points 
         self.dest_points = dest_points
-        self.z = z
         self.scale, self.theta_deg, self.shear_magnitude, self.shear_vector, self.tx, self.ty = self._compute_physical(self.M)
         self.template_id = template_id
 
     @classmethod
-    def from_imagej_xml(cls, trakem_filepath, source_patch_number, dest_patch_number, z=0, landmarks_filepath=None, multi=False):
+    def from_imagej_xml(cls, trakem_filepath, source_patch_number, dest_patch_number, landmarks_filepath=None, multi=False):
         """
         Function to get transform matrix, source and dest points from XML file of TrakEM2 project.
         Inputs:
@@ -65,7 +64,6 @@ class FitTemplate:
                 M = dest_transform,
                 source_points = dest_points,
                 dest_points = source_points,
-                z=z,
                 template_id = dest_patch_number
             )
         else:
@@ -73,7 +71,6 @@ class FitTemplate:
                 M = source_transform,
                 source_points = source_points,
                 dest_points = dest_points,
-                z=z,
                 template_id = dest_patch_number
             )
     
