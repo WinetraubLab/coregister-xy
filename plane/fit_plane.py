@@ -9,7 +9,7 @@ class FitPlane:
         self.u = np.array(u)
         self.v = np.array(v)
         self.h = np.array(h)
-                
+
         if u is not None and v is not None and h is not None:
             self._check_u_v_consistency_assumptions()
     
@@ -36,16 +36,16 @@ class FitPlane:
 
         # Input check
         if (len(template_center_positions_uv_pix) != len(template_center_positions_xyz_um)):
-            raise ValueError("Number of lines should be the same between " + 
+            raise ValueError("Number of points should be the same between " + 
                 "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
         # Solve x,y first
-        c = fp._fit_from_photobleach_lines_xy(
+        c = fp._fit_from_templates(
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
         
         # Make sure u has no z component. It will help make things standard
-        fp._fit_from_photobleach_lines_z_from_no_shear_equal_size()
+        fp._fit_from_templates_z_from_no_shear_equal_size()
         # Fix z component
         fp.h[2] = 0
 
@@ -69,50 +69,14 @@ class FitPlane:
             recommended_center_pix=data['recommended_center_pix']
         )
     
-    """ End constractor methods """    
-    def _fit_from_photobleach_lines_xy(self, 
-        fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group
-        ):
-        """ First part estimates x-y part of u,v,h using least squares matrix """
+    """ End constructor methods """    
+    def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
+        """
+        Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
+        """
+        pass
         
-        # Generate least square matrix
-        def gen_row (
-            ln_pts, # Points on the specific line
-            ln_id_group, # Can be 'h' or 'v'
-            ln_id_pos,   # The physical position in mm
-            ):
-            y_row = []
-            A_row = []
-            for ln_pt in ln_pts:
-                y.append(ln_id_pos) # least square y is the line position [mm]
-                if ln_id_group == 'v':
-                    A_row.append([ln_pt[0], 0, ln_pt[1], 0, 1, 0])
-                else:
-                    A_row.append([0, ln_pt[0], 0, ln_pt[1], 0, 1])
-
-            A_row = np.array(A_row)
-            y_row = np.array(y_row)
-
-            return (A_row,y_row)
-        A = []
-        y = []
-        for index, _ in enumerate(photobleach_line_group):
-            A_row, y_row = gen_row(fluorescence_image_points_on_line_pix[index],
-                photobleach_line_group[index],photobleach_line_position_mm[index])
-            A.append(A_row)
-            y.append(y_row)
-        A = np.vstack(A)
-        y = np.hstack(y)
-        
-        # Solve the least square problem
-        x, residuals, rank, s = np.linalg.lstsq(A, y, rcond=None)
-
-        # Output vectors
-        self.u = np.array([x[0], x[1], np.nan])
-        self.v = np.array([x[2], x[3], np.nan])
-        self.h = np.array([x[4], x[5], np.nan])
-        
-    def _fit_from_photobleach_lines_z_from_no_shear_equal_size(self):
+    def _fit_from_templates_z_from_no_shear_equal_size(self):
         # Estimate z by using no shear and equal size assumptions
         u_x = self.u[0]
         u_y = self.u[1]
