@@ -5,7 +5,7 @@ from scipy.optimize import minimize
 class FitPlane:
     
     """ Begin constractor methods """
-    def __init__(self,u=None,v=None,h=None,recommended_center_pix=[0,0]):
+    def __init__(self,u=None,v=None,h=None):
         self.u = np.array(u)
         self.v = np.array(v)
         self.h = np.array(h)
