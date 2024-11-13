@@ -5,71 +5,56 @@ from scipy.optimize import minimize
 class FitPlane:
     
     """ Begin constractor methods """
-    def __init__(self,u=None,v=None,h=None,recommended_center_pix=[0,0]):
+    def __init__(self,u=None,v=None,h=None):
         self.u = np.array(u)
         self.v = np.array(v)
         self.h = np.array(h)
-        self.recommended_center_pix = np.array(recommended_center_pix)
         
         if u is not None and v is not None and h is not None:
             self._check_u_v_consistency_assumptions()
     
     @classmethod
-    def from_fitting_points_on_photobleach_lines(cls, 
-        fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group,
-        print_inputs = False):
+    def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
         """
-        This function initialize FitPlane by points on photobleach lines.
-        
+        This function initializes a FitPlane by a list of points for template centers.
+
         INPUTS:
-            fluorescence_image_points_on_line_pix: For each of the photobleach lines, 
-                find at least two points in the fluorescence image. Mark the coordinates as pixel values
-                l1 = [[x1,y1],[x2,y2],...] and create an array of those [l1,l2,...,ln]
-            photobleach_line_position_mm: an array defining the position (in mm) of each of the photobleach line positions 
-            photobleach_line_group: an array defining each line is a horizontal or vertical line ['h','v',...] etc
+            template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
+                array of these center points.
+            template_center_positions_xyz_um: An array of points defining the position (in um) of the locations that each of 
+                the points in template_center_positions_uv_pix should map to. These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
         fp = cls()
 
         # Print inputs
         if print_inputs:
-            txt = 'FitPlane.from_fitting_points_on_photobleach_lines('
-            txt = txt + json.dumps(np.array(fluorescence_image_points_on_line_pix).tolist()) + ','
-            txt = txt + json.dumps(np.array(photobleach_line_position_mm).tolist()) + ','
-            txt = txt + json.dumps(np.array(photobleach_line_group).tolist()) + ')'
+            txt = 'FitPlane.from_template_centers('
+            txt = txt + json.dumps(np.array(template_center_positions_uv_pix).tolist()) + ','
+            txt = txt + json.dumps(np.array(template_center_positions_xyz_um).tolist()) + ')'
             print(txt)
-        
+
         # Input check
-        if (len(fluorescence_image_points_on_line_pix) != len(photobleach_line_position_mm) or
-            len(fluorescence_image_points_on_line_pix) != len(photobleach_line_group)):
+        if (len(template_center_positions_uv_pix) != len(template_center_positions_xyz_um)):
             raise ValueError("Number of lines should be the same between " + 
-                "fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group")
+                "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
         # Solve x,y first
         c = fp._fit_from_photobleach_lines_xy(
-            fluorescence_image_points_on_line_pix, 
-            photobleach_line_position_mm, 
-            photobleach_line_group)
-            
+            template_center_positions_uv_pix, 
+            template_center_positions_xyz_um)
+        
         # Make sure u has no z component. It will help make things standard
         fp._fit_from_photobleach_lines_z_from_no_shear_equal_size()
-        
         # Fix z component
         fp.h[2] = 0
-        
+
         # Check
         fp._check_u_v_consistency_assumptions()
-        
-        # Find recomended_center according to this logic:
-        # c_u - according to the location that norm hits the plane
-        # c_v - center of the fluorescence_image_points_on_line_pix
-        v_coordinates = np.array([item[1] for sublist in fluorescence_image_points_on_line_pix for item in sublist])
-        c_v = np.mean(v_coordinates)
-        o = fp.get_uv_from_xyz([0,0,0])
-        c_u = o[0]
-        fp.recommended_center_pix = np.array([c_u, c_v])
-        
-        return(fp)
+        return fp
+
+
+
         
     @classmethod
     def from_json(cls, json_str):
