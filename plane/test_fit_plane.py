@@ -13,3 +13,4 @@ class TestFitMultiPlane(unittest.TestCase):
 
     def test_main_function_runs(self):
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=True)

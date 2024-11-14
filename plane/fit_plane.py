@@ -43,17 +43,11 @@ class FitPlane:
             raise ValueError("Number of points should be the same between " + 
                 "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
-        # Solve x,y first
         fp._fit_from_templates(
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
                 
-        # Make sure u has no z component. It will help make things standard
-        # Fix z component
         if fp.u:
-            fp.h[2] = 0
-
-            # Check
             fp._check_u_v_consistency_assumptions()
 
         return fp
@@ -70,7 +64,6 @@ class FitPlane:
             u=data['u'],
             v=data['v'],
             h=data['h'],
-            recommended_center_pix=data['recommended_center_pix']
         )
     
     """ End constructor methods """    
