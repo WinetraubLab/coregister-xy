@@ -5,71 +5,52 @@ from scipy.optimize import minimize
 class FitPlane:
     
     """ Begin constractor methods """
-    def __init__(self,u=None,v=None,h=None,recommended_center_pix=[0,0]):
+    def __init__(self,u=None,v=None,h=None):
         self.u = np.array(u)
         self.v = np.array(v)
         self.h = np.array(h)
-        self.recommended_center_pix = np.array(recommended_center_pix)
-        
+
         if u is not None and v is not None and h is not None:
             self._check_u_v_consistency_assumptions()
     
     @classmethod
-    def from_fitting_points_on_photobleach_lines(cls, 
-        fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group,
-        print_inputs = False):
+    def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
         """
-        This function initialize FitPlane by points on photobleach lines.
-        
+        This function initializes a FitPlane by a list of points for template centers.
+
         INPUTS:
-            fluorescence_image_points_on_line_pix: For each of the photobleach lines, 
-                find at least two points in the fluorescence image. Mark the coordinates as pixel values
-                l1 = [[x1,y1],[x2,y2],...] and create an array of those [l1,l2,...,ln]
-            photobleach_line_position_mm: an array defining the position (in mm) of each of the photobleach line positions 
-            photobleach_line_group: an array defining each line is a horizontal or vertical line ['h','v',...] etc
+            template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
+                array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
+            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
+                position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
+                These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
         fp = cls()
 
+        template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
+        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
+
         # Print inputs
         if print_inputs:
-            txt = 'FitPlane.from_fitting_points_on_photobleach_lines('
-            txt = txt + json.dumps(np.array(fluorescence_image_points_on_line_pix).tolist()) + ','
-            txt = txt + json.dumps(np.array(photobleach_line_position_mm).tolist()) + ','
-            txt = txt + json.dumps(np.array(photobleach_line_group).tolist()) + ')'
+            txt = 'FitPlane.from_template_centers('
+            txt = txt + json.dumps(template_center_positions_uv_pix.tolist()) + ','
+            txt = txt + json.dumps(template_center_positions_xyz_um.tolist()) + ')'
             print(txt)
-        
+
         # Input check
-        if (len(fluorescence_image_points_on_line_pix) != len(photobleach_line_position_mm) or
-            len(fluorescence_image_points_on_line_pix) != len(photobleach_line_group)):
-            raise ValueError("Number of lines should be the same between " + 
-                "fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group")
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
+            raise ValueError("Number of points should be the same between " + 
+                "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
-        # Solve x,y first
-        c = fp._fit_from_photobleach_lines_xy(
-            fluorescence_image_points_on_line_pix, 
-            photobleach_line_position_mm, 
-            photobleach_line_group)
-            
-        # Make sure u has no z component. It will help make things standard
-        fp._fit_from_photobleach_lines_z_from_no_shear_equal_size()
-        
-        # Fix z component
-        fp.h[2] = 0
-        
-        # Check
-        fp._check_u_v_consistency_assumptions()
-        
-        # Find recomended_center according to this logic:
-        # c_u - according to the location that norm hits the plane
-        # c_v - center of the fluorescence_image_points_on_line_pix
-        v_coordinates = np.array([item[1] for sublist in fluorescence_image_points_on_line_pix for item in sublist])
-        c_v = np.mean(v_coordinates)
-        o = fp.get_uv_from_xyz([0,0,0])
-        c_u = o[0]
-        fp.recommended_center_pix = np.array([c_u, c_v])
-        
-        return(fp)
+        fp._fit_from_templates(
+            template_center_positions_uv_pix, 
+            template_center_positions_xyz_um)
+                
+        if fp.u:
+            fp._check_u_v_consistency_assumptions()
+
+        return fp
         
     @classmethod
     def from_json(cls, json_str):
@@ -83,85 +64,14 @@ class FitPlane:
             u=data['u'],
             v=data['v'],
             h=data['h'],
-            recommended_center_pix=data['recommended_center_pix']
         )
     
-    """ End constractor methods """    
-    def _fit_from_photobleach_lines_xy(self, 
-        fluorescence_image_points_on_line_pix, photobleach_line_position_mm, photobleach_line_group
-        ):
-        """ First part estimates x-y part of u,v,h using least squares matrix """
-        
-        # Generate least square matrix
-        def gen_row (
-            ln_pts, # Points on the specific line
-            ln_id_group, # Can be 'h' or 'v'
-            ln_id_pos,   # The physical position in mm
-            ):
-            y_row = []
-            A_row = []
-            for ln_pt in ln_pts:
-                y.append(ln_id_pos) # least square y is the line position [mm]
-                if ln_id_group == 'v':
-                    A_row.append([ln_pt[0], 0, ln_pt[1], 0, 1, 0])
-                else:
-                    A_row.append([0, ln_pt[0], 0, ln_pt[1], 0, 1])
-
-            A_row = np.array(A_row)
-            y_row = np.array(y_row)
-
-            return (A_row,y_row)
-        A = []
-        y = []
-        for index, _ in enumerate(photobleach_line_group):
-            A_row, y_row = gen_row(fluorescence_image_points_on_line_pix[index],
-                photobleach_line_group[index],photobleach_line_position_mm[index])
-            A.append(A_row)
-            y.append(y_row)
-        A = np.vstack(A)
-        y = np.hstack(y)
-        
-        # Solve the least square problem
-        x, residuals, rank, s = np.linalg.lstsq(A, y, rcond=None)
-
-        # Output vectors
-        self.u = np.array([x[0], x[1], np.nan])
-        self.v = np.array([x[2], x[3], np.nan])
-        self.h = np.array([x[4], x[5], np.nan])
-        
-    def _fit_from_photobleach_lines_z_from_no_shear_equal_size(self):
-        # Estimate z by using no shear and equal size assumptions
-        u_x = self.u[0]
-        u_y = self.u[1]
-        v_x = self.v[0]
-        v_y = self.v[1]
-
-        # No shear means dot product of u vec and v vec is 0
-        # We define A = u_x*v_x+u_y*v_y,
-        # Optimize u_z,v_z such that A+u_z*v_z is close to 0
-        A = u_x*v_x+u_y*v_y
-
-        # Equal size means same norm |u|^2=|v|^2
-        # We define B = u_x**2-v_x**2+u_y**2-v_y**2
-        # Optimize u_z,v_z such that B+u_**2-v_z**2 is close to 0
-        B = u_x**2-v_x**2+u_y**2-v_y**2
-
-        # Find a solution
-        def objective_function(vec):
-            u_z, v_z = vec
-            return (A + u_z*v_z)**2 + (B + u_z**2 - v_z**2)**2
-        result = minimize(objective_function, [0, np.linalg.norm(self.u[0:1])],
-            options={'gtol': 1e-12})
-        u_z, v_z = result.x
-
-        # Make sure the solution is such v_z is positive as solutions are sign agnostic
-        if v_z < 0:
-            u_z = -u_z
-            v_z = -v_z
-            
-        # Store result
-        self.u[2] = u_z
-        self.v[2] = v_z
+    """ End constructor methods """    
+    def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
+        """
+        Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
+        """
+        pass
               
     def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
         """ Check u,v assumptions """
