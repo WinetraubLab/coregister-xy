@@ -20,23 +20,26 @@ class FitPlane:
 
         INPUTS:
             template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
-                array of these center points [(x1, y1), (x2, y2),..., (xn, yn)] with shape (n,2)
-            template_center_positions_xyz_um: An array [(x1, y1, z1),..., (xn, yn, zn)] of shape (n,3) containing points defining the 
+                array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
+            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
                 position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
         fp = cls()
 
+        template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
+        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
+
         # Print inputs
         if print_inputs:
             txt = 'FitPlane.from_template_centers('
-            txt = txt + json.dumps(np.array(template_center_positions_uv_pix).tolist()) + ','
-            txt = txt + json.dumps(np.array(template_center_positions_xyz_um).tolist()) + ')'
+            txt = txt + json.dumps(template_center_positions_uv_pix.tolist()) + ','
+            txt = txt + json.dumps(template_center_positions_xyz_um.tolist()) + ')'
             print(txt)
 
         # Input check
-        if (len(template_center_positions_uv_pix) != len(template_center_positions_xyz_um)):
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
             raise ValueError("Number of points should be the same between " + 
                 "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
