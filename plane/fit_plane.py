@@ -76,40 +76,6 @@ class FitPlane:
         Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
         """
         pass
-        
-    # def _fit_from_templates_z_from_no_shear_equal_size(self):
-    #     # Estimate z by using no shear and equal size assumptions
-    #     u_x = self.u[0]
-    #     u_y = self.u[1]
-    #     v_x = self.v[0]
-    #     v_y = self.v[1]
-
-    #     # No shear means dot product of u vec and v vec is 0
-    #     # We define A = u_x*v_x+u_y*v_y,
-    #     # Optimize u_z,v_z such that A+u_z*v_z is close to 0
-    #     A = u_x*v_x+u_y*v_y
-
-    #     # Equal size means same norm |u|^2=|v|^2
-    #     # We define B = u_x**2-v_x**2+u_y**2-v_y**2
-    #     # Optimize u_z,v_z such that B+u_**2-v_z**2 is close to 0
-    #     B = u_x**2-v_x**2+u_y**2-v_y**2
-
-    #     # Find a solution
-    #     def objective_function(vec):
-    #         u_z, v_z = vec
-    #         return (A + u_z*v_z)**2 + (B + u_z**2 - v_z**2)**2
-    #     result = minimize(objective_function, [0, np.linalg.norm(self.u[0:1])],
-    #         options={'gtol': 1e-12})
-    #     u_z, v_z = result.x
-
-    #     # Make sure the solution is such v_z is positive as solutions are sign agnostic
-    #     if v_z < 0:
-    #         u_z = -u_z
-    #         v_z = -v_z
-            
-    #     # Store result
-    #     self.u[2] = u_z
-    #     self.v[2] = v_z
               
     def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
         """ Check u,v assumptions """
