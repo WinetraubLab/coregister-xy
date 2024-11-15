@@ -64,7 +64,6 @@ class FitPlane:
             u=data['u'],
             v=data['v'],
             h=data['h'],
-            recommended_center_pix=data['recommended_center_pix']
         )
     
     """ End constructor methods """    
