@@ -20,37 +20,35 @@ class FitPlane:
 
         INPUTS:
             template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
-                array of these center points.
-            template_center_positions_xyz_um: An array of points defining the position (in um) of the locations that each of 
-                the points in template_center_positions_uv_pix should map to. These points can be obtained from the photobleaching script.
+                array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
+            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
+                position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
+                These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
         fp = cls()
 
+        template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
+        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
+
         # Print inputs
         if print_inputs:
             txt = 'FitPlane.from_template_centers('
-            txt = txt + json.dumps(np.array(template_center_positions_uv_pix).tolist()) + ','
-            txt = txt + json.dumps(np.array(template_center_positions_xyz_um).tolist()) + ')'
+            txt = txt + json.dumps(template_center_positions_uv_pix.tolist()) + ','
+            txt = txt + json.dumps(template_center_positions_xyz_um.tolist()) + ')'
             print(txt)
 
         # Input check
-        if (len(template_center_positions_uv_pix) != len(template_center_positions_xyz_um)):
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
             raise ValueError("Number of points should be the same between " + 
                 "template_center_positions_uv_pix, template_center_positions_xyz_um")
         
-        # Solve x,y first
-        c = fp._fit_from_templates(
+        fp._fit_from_templates(
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
-        
-        # Make sure u has no z component. It will help make things standard
-        fp._fit_from_templates_z_from_no_shear_equal_size()
-        # Fix z component
-        fp.h[2] = 0
-
-        # Check
-        fp._check_u_v_consistency_assumptions()
+                
+        if fp.u is not None:
+            fp._check_u_v_consistency_assumptions()
 
         return fp
         
@@ -104,40 +102,6 @@ class FitPlane:
         self.u = np.array([ux, uy, uz])
         self.v = np.array([vx, vy, vz])
         self.h = np.array([hx, hy, hz])
-        
-    def _fit_from_templates_z_from_no_shear_equal_size(self):
-        # Estimate z by using no shear and equal size assumptions
-        u_x = self.u[0]
-        u_y = self.u[1]
-        v_x = self.v[0]
-        v_y = self.v[1]
-
-        # No shear means dot product of u vec and v vec is 0
-        # We define A = u_x*v_x+u_y*v_y,
-        # Optimize u_z,v_z such that A+u_z*v_z is close to 0
-        A = u_x*v_x+u_y*v_y
-
-        # Equal size means same norm |u|^2=|v|^2
-        # We define B = u_x**2-v_x**2+u_y**2-v_y**2
-        # Optimize u_z,v_z such that B+u_**2-v_z**2 is close to 0
-        B = u_x**2-v_x**2+u_y**2-v_y**2
-
-        # Find a solution
-        def objective_function(vec):
-            u_z, v_z = vec
-            return (A + u_z*v_z)**2 + (B + u_z**2 - v_z**2)**2
-        result = minimize(objective_function, [0, np.linalg.norm(self.u[0:1])],
-            options={'gtol': 1e-12})
-        u_z, v_z = result.x
-
-        # Make sure the solution is such v_z is positive as solutions are sign agnostic
-        if v_z < 0:
-            u_z = -u_z
-            v_z = -v_z
-            
-        # Store result
-        self.u[2] = u_z
-        self.v[2] = v_z
               
     def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
         """ Check u,v assumptions """
