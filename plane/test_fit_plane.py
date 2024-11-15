@@ -8,9 +8,22 @@ from plane.fit_plane import FitPlane
 class TestFitMultiPlane(unittest.TestCase):
 
     def setUp(self):
-      self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]
-      self.template_center_positions_xyz_um = [[0,2,10], [2,0,10], [2,2,11]]
+        self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]
+
+        # rotation around y axis.
+        self.template_center_positions_xyz_um_1 = [[0,1,0], [0.9994, 0, -0.0349], [0.9994,1,-0.0349]] 
+
+        # rotation around z axis. 
+        self.template_center_positions_xyz_um_2 = [[0.035, 0.9994,5], [0.9994, -0.0349, 5], [1.0343, 0.9645, 5]] 
+
+        # rotation around x axis.
+        self.template_center_positions_xyz_um_3 = [[0,0.9994,0.0349], [0.9994,0.0012,-0.0349], [0.9994,1.0006,0.00002]]
 
     def test_main_function_runs(self):
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=True)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=True)
+
+    def test_fit_mapping(self):
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_1, print_inputs=False) 
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False) 

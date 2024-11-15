@@ -47,7 +47,7 @@ class FitPlane:
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
                 
-        if fp.u:
+        if fp.u is not None:
             fp._check_u_v_consistency_assumptions()
 
         return fp
@@ -71,7 +71,36 @@ class FitPlane:
         """
         Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
         """
-        pass
+        u = np.array([x[0] for x in template_center_positions_uv_pix])
+        v = np.array([x[1] for x in template_center_positions_uv_pix])
+
+        x = np.array([x[0] for x in template_center_positions_xyz_um])
+        y = np.array([x[1] for x in template_center_positions_xyz_um])
+        z = np.array([x[2] for x in template_center_positions_xyz_um])
+
+        # Number of points
+        n = u.shape[0]
+
+        A = np.zeros((3 * n, 9))
+        for i in range(n):
+            A[3 * i] = [u[i], v[i], 1, 0, 0, 0, 0, 0, 0]      # x equation
+            A[3 * i + 1] = [0, 0, 0, u[i], v[i], 1, 0, 0, 0]  # y equation
+            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u[i], v[i], 1]  # z equation
+
+        # Output vector b
+        b = np.zeros(3 * n)
+        for i in range(n):
+            b[3 * i] = x[i]
+            b[3 * i + 1] = y[i]
+            b[3 * i + 2] = z[i]
+
+        # Solve using least squares
+        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) 
+        ux, vx, hx, uy, vy, hy, uz, vz, hz = M
+
+        self.u = np.array([ux, uy, uz])
+        self.v = np.array([vx, vy, vz])
+        self.h = np.array([hx, hy, hz])
               
     def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
         """ Check u,v assumptions """
