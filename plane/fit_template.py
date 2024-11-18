@@ -2,7 +2,7 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from scipy.linalg import polar
 
-class ParseXML:
+class FitTemplate:
     def __init__(self, source_points=None, dest_points=None, M=None, z=0):
         self.M = M # Transformation from source image to dest image coordinates
         self.source_points = source_points 
@@ -19,7 +19,7 @@ class ParseXML:
             source_patch_number: the patch number assigned to your source image by ImageJ.
             dest_patch_number: patch number assigned to dest image by ImageJ.
             landmarks_filepath: the file with exported landmarks from both images.
-        Outputs: returns a ParseXML object describing one pair of photobleach barcodes.
+        Outputs: returns a FitTemplate object describing one pair of photobleach barcodes.
         """
         tree = ET.parse(trakem_filepath)
         root = tree.getroot()
