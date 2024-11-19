@@ -10,8 +10,8 @@ class FitPlane:
         self.v = np.array(v)
         self.h = np.array(h)
 
-        if u is not None and v is not None and h is not None:
-            self._check_u_v_consistency_assumptions()
+        # if u is not None and v is not None and h is not None:
+        #     self._check_u_v_consistency_assumptions()
     
     @classmethod
     def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
@@ -47,8 +47,8 @@ class FitPlane:
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
                 
-        if fp.u is not None:
-            fp._check_u_v_consistency_assumptions()
+        # if fp.u is not None:
+        #     fp._check_u_v_consistency_assumptions()
 
         return fp
         
