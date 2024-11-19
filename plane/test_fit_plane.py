@@ -5,7 +5,7 @@ import numpy.testing as npt
 import unittest
 from plane.fit_plane import FitPlane
 
-class TestFitMultiPlane(unittest.TestCase):
+class TestFitPlane(unittest.TestCase):
 
     def setUp(self):
         self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]

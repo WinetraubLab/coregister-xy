@@ -2,20 +2,20 @@ import math
 import numpy as np
 import numpy.testing as npt
 import unittest
-from plane.parse_xml import ParseXML
+from plane.fit_template import FitTemplate
 
-class TestParseXML(unittest.TestCase):
+class TestFitTemplate(unittest.TestCase):
 
     def setUp(self):
       self.tk_filepath = "plane/test_vectors/align-1.xml"
       self.l_filepath = "plane/test_vectors/landmarks.xml"
       
     def test_main_function_runs(self):
-      ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
+      FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
 
     def test_parse_data(self):
       # Real saved TrakEM2 XML project files, with original numbers replaced for convenience
-      tk_data = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
+      tk_data = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
       self.assertAlmostEqual(tk_data.M[0,0], 1)
       self.assertAlmostEqual(tk_data.M[1,0], 2)
       self.assertAlmostEqual(tk_data.M[0,1], 3)
@@ -29,7 +29,7 @@ class TestParseXML(unittest.TestCase):
       self.assertAlmostEqual(tk_data.dest_points[1,1],10)
 
     def test_find_transformation_error(self):
-      tk_data = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
+      tk_data = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath)
       tk_data.set_M(np.eye(3))
       tk_data.source_points = np.array([
         [1,2],
@@ -46,14 +46,14 @@ class TestParseXML(unittest.TestCase):
       self.assertAlmostEqual(err, 2)
     
     def test_compute_error(self):
-      test_project = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
       test_project.set_M(np.eye(3))
       test_project.source_points = np.array([[1,2], [3,4]])
       test_project.dest_points = np.array([[3, 2], [3,6]])
       err = test_project.find_transformation_error()
       self.assertAlmostEqual(err, 2)
 
-      test_project = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
       test_project.set_M(np.array([[1,0,2], [0,1,5], [0,0,1]]))
       test_project.source_points = np.array([[1,2], [3,4]])
       test_project.dest_points = np.array([[3, 7], [5,9]])
@@ -80,7 +80,7 @@ class TestParseXML(unittest.TestCase):
          [0,0,1]
       ])
 
-      test_project = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
       test_project.set_M(np.eye(3) @ R2 @ H @ S)
       s = test_project.scale
       r = test_project.theta_deg
@@ -92,7 +92,7 @@ class TestParseXML(unittest.TestCase):
       self.assertAlmostEqual(v[0], 1)
     
     def test_polar_real_matrix(self):
-      test_project = ParseXML.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
+      test_project = FitTemplate.from_imagej_xml(self.tk_filepath, 8, 11, self.l_filepath, True)
       test_project.set_M(np.array([[ 1.84403066, -2.40635941e-01 , 4.98432352e+02],[ 2.56386722e-01 , 2.04612135e+00 , 2.72037605e+03],[ 0.00000000e+00 , 0.00000000e+00,  1.00000000e+00]]))
       s = test_project.scale
       r = test_project.theta_deg
