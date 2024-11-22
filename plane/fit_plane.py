@@ -53,18 +53,22 @@ class FitPlane:
         return fp
         
     @classmethod
-    def from_json(cls, json_str):
-        """
-        Deserialize a JSON string to a FitPlane object.
-        """
-        # Parse the JSON string
+    def _from_json(self, json_str):
         data = json.loads(json_str)
-        # Create a new FitPlane object using the parsed data
-        return cls(
-            u=data['u'],
-            v=data['v'],
-            h=data['h'],
-        )
+        self.u=data['u'],
+        self.v=data['v'],
+        self.h=data['h'],
+        
+    def to_json(self):
+        """
+        Serialize the object to a JSON string.
+        """
+        # Convert the object's dictionary to JSON
+        return json.dumps({
+            'u': self.u.tolist(),
+            'v': self.v.tolist(),
+            'h': self.h.tolist(),
+            })
     
     """ End constructor methods """    
     def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
