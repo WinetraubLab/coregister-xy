@@ -107,7 +107,6 @@ class FitPlane:
         self.h = np.array([hx, hy, hz])
               
     def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
-        return
         """ Check u,v assumptions """
         
         # Skip
