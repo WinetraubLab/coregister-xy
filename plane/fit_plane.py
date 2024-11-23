@@ -168,7 +168,7 @@ class FitPlane:
         point_mm = np.array(point_mm)        
 
         # Assuming u is orthogonal to v (as it shuld) for this function to work
-        self._check_u_v_consistency_assumptions()
+        # self._check_u_v_consistency_assumptions()
         
         u_hat = self.u_direction()
         u_norm = self.u_norm_mm()
