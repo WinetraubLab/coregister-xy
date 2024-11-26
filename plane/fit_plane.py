@@ -52,12 +52,19 @@ class FitPlane:
 
         return fp
         
-    @classmethod
-    def _from_json(self, json_str):
+    @classmethod   
+    def from_json(cls, json_str):
+        """
+        Deserialize a JSON string to a FitPlane object.
+        """
+        # Parse the JSON string
         data = json.loads(json_str)
-        self.u=data['u'],
-        self.v=data['v'],
-        self.h=data['h'],
+        # Create a new FitPlane object using the parsed data
+        return cls(
+            u=data['u'],
+            v=data['v'],
+            h=data['h'],
+        )
         
     def to_json(self):
         """
