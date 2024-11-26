@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from scipy.optimize import minimize
+from sklearn.metrics import mean_absolute_error
 
 class FitPlane:
     
@@ -325,3 +326,19 @@ class FitPlane:
         # Normalize
         norm = np.sqrt(a_out**2 + b_out**2)
         return (a_out/norm, b_out/norm, c_out/norm)
+    
+    def avg_in_plane_projection_error(self, xyz1, xyz2):
+        """ Find in-plane error between two sets of xyz points. Considers x and y only.
+        """
+        xyz1 = np.array(xyz1[:,:2])
+        xyz2 = np.array(xyz2[:,:2])
+        assert xyz1.shape == xyz2.shape, "UV and XYZ arrays must have the same shape"
+        return np.sqrt(np.sum(mean_absolute_error(xyz1, xyz2, multioutput='raw_values')**2))
+
+    def avg_out_of_plane_projection_error(self, xyz1, xyz2):
+        """ Find out-of-plane error between two sets of xyz points. Considers z only.
+        """
+        xyz1 = np.array(xyz1[:,2])
+        xyz2 = np.array(xyz2[:,2])
+        assert xyz1.shape == xyz2.shape, "UV and XYZ arrays must have the same shape"
+        return mean_absolute_error(xyz1, xyz2)
