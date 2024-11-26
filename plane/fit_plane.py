@@ -52,7 +52,7 @@ class FitPlane:
 
         return fp
         
-    @classmethod
+    @classmethod   
     def from_json(cls, json_str):
         """
         Deserialize a JSON string to a FitPlane object.
@@ -65,6 +65,17 @@ class FitPlane:
             v=data['v'],
             h=data['h'],
         )
+        
+    def to_json(self):
+        """
+        Serialize the object to a JSON string.
+        """
+        # Convert the object's dictionary to JSON
+        return json.dumps({
+            'u': self.u.tolist(),
+            'v': self.v.tolist(),
+            'h': self.h.tolist(),
+            })
     
     """ End constructor methods """    
     def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
@@ -164,7 +175,7 @@ class FitPlane:
         point_mm = np.array(point_mm)        
 
         # Assuming u is orthogonal to v (as it shuld) for this function to work
-        self._check_u_v_consistency_assumptions()
+        # self._check_u_v_consistency_assumptions()
         
         u_hat = self.u_direction()
         u_norm = self.u_norm_mm()
@@ -258,25 +269,6 @@ class FitPlane:
         dot_product = np.dot(self.v_direction(),np.array([0, 0, 1]))
         z_angle = np.degrees(np.arccos(dot_product))
         return z_angle  
-        
-    def _from_json(self, json_str):
-        data = json.loads(json_str)
-        self.u=data['u'],
-        self.v=data['v'],
-        self.h=data['h'],
-        self.recommended_center_pix=data['recommended_center_pix']
-        
-    def to_json(self):
-        """
-        Serialize the object to a JSON string.
-        """
-        # Convert the object's dictionary to JSON
-        return json.dumps({
-            'u': self.u.tolist(),
-            'v': self.v.tolist(),
-            'h': self.h.tolist(),
-            'recommended_center_pix': self.recommended_center_pix.tolist()
-            })
 
     def get_v_line_fit_plane_intercept(self, line_position_mm):
         """ 
