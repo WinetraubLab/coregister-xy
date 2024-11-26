@@ -27,3 +27,16 @@ class TestFitPlane(unittest.TestCase):
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_1, print_inputs=False) 
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False) 
+
+    def test_xyz_to_uv(self):
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False)
+        a = fp.get_xyz_from_uv((fp.get_uv_from_xyz((0,0.9994,0.0349))))
+        self.assertAlmostEqual(0.9994, a[1], 3)
+        self.assertAlmostEqual(0.0349, a[2], 3)
+
+    def test_error_calcs(self):
+        points1 = np.array([[0,1, 0],[1,0, 0],[1,1, 0]])
+        points2 = np.array([[3,5,1],[4,4, 3],[4,5, 2]])
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False)
+        self.assertAlmostEqual(5, fp.avg_in_plane_projection_error(points1, points2))
+        self.assertAlmostEqual(2, fp.avg_out_of_plane_projection_error(points1, points2))
