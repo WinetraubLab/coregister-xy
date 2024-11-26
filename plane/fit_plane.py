@@ -6,12 +6,14 @@ class FitPlane:
     
     """ Begin constractor methods """
     def __init__(self,u_mm=None,v_mm=None,h_mm=None):
-        self.u = np.array(u_mm) # mm
-        self.v = np.array(v_mm) # mm
-        self.h = np.array(h_mm) # mm
-
-        # if u is not None and v is not None and h is not None:
-        #     self._check_u_v_consistency_assumptions()
+        if u_mm is not None and v_mm is not None and h_mm is not None:
+            self.u = np.array(u_mm) # mm
+            self.v = np.array(v_mm) # mm
+            self.h = np.array(h_mm) # mm
+        else:
+            self.u = None
+            self.v = None
+            self.h = None
     
     @classmethod
     def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
