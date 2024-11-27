@@ -48,9 +48,6 @@ class FitPlane:
         fp._fit_from_templates(
             template_center_positions_uv_pix, 
             template_center_positions_xyz_um)
-                
-        # if fp.u is not None:
-        #     fp._check_u_v_consistency_assumptions()
 
         return fp
         
@@ -115,27 +112,6 @@ class FitPlane:
         self.v = np.array([vx, vy, vz])
         self.h = np.array([hx, hy, hz])
               
-    def _check_u_v_consistency_assumptions(self, skip_value_cheks=False):
-        """ Check u,v assumptions """
-        
-        # Skip
-        if skip_value_cheks:
-            return
-    
-        # Check u and v are orthogonal and have the same norm
-        if not (np.abs(self.u_norm_mm() - self.v_norm_mm())/self.v_norm_mm() < 0.05):
-            raise ValueError('u and v should have the same norm')
-        if not (np.dot(self.u,self.v)/(self.u_norm_mm()*self.v_norm_mm()) < 0.05):
-            raise ValueError('u must be orthogonal to v')
-        
-        # Check that u vec is more or less in the x-y plane
-        min_ratio = 0.15
-        slope = abs(self.u[2]) / np.linalg.norm(self.u[:2])
-        if not ( slope < min_ratio):
-            raise ValueError(
-                'Make sure that tissue surface is parallel to x axis. Slope is %.2f (%.0f deg) which is higher than target <%.2f slope'
-                % (slope, np.degrees(np.arcsin(slope)),min_ratio))
-
     def u_norm_mm(self):
         """ Return the size of pixel u in mm """
         return np.linalg.norm(self.u)
@@ -175,9 +151,6 @@ class FitPlane:
         """ Get the u,v coordinates on an image from a point in space, if point is outside the plane, return the u,v of the closest point. point_mm is a 3D numpy array or array """
 	
         point_mm = np.array(point_mm)        
-
-        # Assuming u is orthogonal to v (as it shuld) for this function to work
-        # self._check_u_v_consistency_assumptions()
         
         u_hat = self.u_direction()
         u_norm = self.u_norm_mm()
