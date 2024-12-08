@@ -52,11 +52,9 @@ class FitPlane:
         if print_inputs:
             txt = ("FitPlane.from_template_centers(" +
                    json.dumps(template_center_positions_uv_pix.tolist()) + "," +
-                   json.dumps(template_center_positions_xyz_um.tolist()))
-            
+                   json.dumps(template_center_positions_xyz_um.tolist()))   
             if forced_plane_norm is not None:
                 txt += ',' + json.dumps(forced_plane_norm.tolist())
-
             txt += ')'
             print(txt)
 
