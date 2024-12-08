@@ -18,7 +18,7 @@ class FitPlane:
     @classmethod
     def from_template_centers(
         cls, template_center_positions_uv_pix, template_center_positions_xyz_um,
-        forced_plane_norm = None, 
+        forced_plane_normal = None, 
         print_inputs = False):
         """
         This function initializes a FitPlane by a list of points for template centers.
@@ -29,7 +29,7 @@ class FitPlane:
             template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
                 position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
-            forced_plane_norm: When set to a 3D vector, will find the best plane fit that also satisfies u cross v is plane norm.
+            forced_plane_normal: When set to a 3D vector, will find the best plane fit that also satisfies u cross v is plane norm.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
 
@@ -43,17 +43,18 @@ class FitPlane:
             raise ValueError("Number of elements in template_center_positions_uv_pix should be two")
         if template_center_positions_xyz_um.shape[1] != 3:
             raise ValueError("Number of elements in template_center_positions_xyz_um should be three")
-        if forced_plane_norm is not None:
-            forced_plane_norm = np.array(forced_plane_norm)
-            if forced_plane_norm.shape[0] != 3:
-                raise ValueError("forced_plane_norm should be 3D vector")
+        if forced_plane_normal is not None:
+            forced_plane_normal = np.array(forced_plane_normal)
+            if forced_plane_normal.shape[0] != 3:
+                raise ValueError("forced_plane_normal should be 3D vector")
+            forced_plane_normal = forced_plane_normal / np.linalg.norm(forced_plane_normal)
 
         # Print inputs
         if print_inputs:
             txt = ("FitPlane.from_template_centers(" +
                    json.dumps(template_center_positions_uv_pix.tolist()) + "," +
                    json.dumps(template_center_positions_xyz_um.tolist()))   
-            if forced_plane_norm is not None:
+            if forced_plane_normal is not None:
                 txt += ',' + json.dumps(forced_plane_norm.tolist())
             txt += ')'
             print(txt)
@@ -81,9 +82,34 @@ class FitPlane:
             b[3 * i + 1] = y_pt[i]
             b[3 * i + 2] = z_pt[i]
 
-        # Solve using least squares
-        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) 
-        ux, vx, hx, uy, vy, hy, uz, vz, hz = M
+        # Define a least square cost function
+        def objective(x):
+            return np.sum((A @ x - b)**2)
+
+        # Define constraint
+        def constraint(x):
+            u = x[0:3]
+            u = u / np.linalg.norm(u)
+            v = x[3:6]
+            v = v / np.linalg.norm(u)
+
+            n = np.cross(u,v)
+            dot_product_with_direction = np.dot(n, forced_plane_normal)
+            return dot_product_with_direction - 1
+
+        if forced_plane_normal is not None:
+            constraints = [{'type': 'eq', 'fun': constraint}]
+        else:
+            constraints = []            
+
+        # Initial guess, just least square
+        x0, _, _, _ = np.linalg.lstsq(A, b, rcond=None) 
+
+        # Solve the constrained optimization problem
+        result = minimize(objective, x0, constraints=constraints)
+
+        # Get the solution vector
+        ux, vx, hx, uy, vy, hy, uz, vz, hz = result.x
 
         fp = cls(
             u_mm = np.array([ux, uy, uz]),

@@ -40,4 +40,19 @@ class TestFitPlane(unittest.TestCase):
         # Check number of elements in xyz vector is not three
         with self.assertRaises(ValueError):
             FitPlane.from_template_centers([[0,1,0],[0,2,0],[0,3,0]],[[0,1,0],[0,2,0],[0,3,0]])
-        
+
+    def test_fit_with_constrains(self):
+        uv = [[0,0],[1,0],[0,1]]
+        xyz = [[0,0,0],[1,0,0],[0,1,0]]
+
+        n = np.array([0,0.1,0.8])
+        n = n / np.linalg.norm(n)
+
+        # Make sure plane fitted norm fits the desired direction
+        fp_n = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = n)
+        self.assertAlmostEqual(np.dot(fp_n.normal_direction(),n),1, places=1)
+
+        # Compare u and v to the un-forced version
+        fp = FitPlane.from_template_centers(uv,xyz)
+        self.assertAlmostEqual(fp_n.u_norm_mm(),fp.u_norm_mm(), places=1)
+        self.assertAlmostEqual(fp_n.v_norm_mm(),fp.v_norm_mm(), places=1)
