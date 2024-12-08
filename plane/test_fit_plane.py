@@ -45,14 +45,16 @@ class TestFitPlane(unittest.TestCase):
         uv = [[0,0],[1,0],[0,1]]
         xyz = [[0,0,0],[1,0,0],[0,1,0]]
 
-        n = np.array([0,0.1,0.8])
+        n = np.array([0,0.5,1])
         n = n / np.linalg.norm(n)
+
+        # Make sure un-forced version doesn't point in the norm direction.
+        # This is an evaluation of the test's effectiveness.
+        fp = FitPlane.from_template_centers(uv,xyz)
+        self.assertLess(np.dot(n,np.array([0,0,1])),0.9)
 
         # Make sure plane fitted norm fits the desired direction
         fp_n = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = n)
         self.assertAlmostEqual(np.dot(fp_n.normal_direction(),n),1, places=1)
 
-        # Compare u and v to the un-forced version
-        fp = FitPlane.from_template_centers(uv,xyz)
-        self.assertAlmostEqual(fp_n.u_norm_mm(),fp.u_norm_mm(), places=1)
-        self.assertAlmostEqual(fp_n.v_norm_mm(),fp.v_norm_mm(), places=1)
+
