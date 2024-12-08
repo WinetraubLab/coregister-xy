@@ -16,7 +16,10 @@ class FitPlane:
             self.h = None
     
     @classmethod
-    def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
+    def from_template_centers(
+        cls, template_center_positions_uv_pix, template_center_positions_xyz_um,
+        forced_plane_norm = None, 
+        print_inputs = False):
         """
         This function initializes a FitPlane by a list of points for template centers.
 
@@ -26,28 +29,68 @@ class FitPlane:
             template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
                 position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
+            forced_plane_norm: When set to a 3D vector, will find the best plane fit that also satisfies u cross v is plane norm.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
-        fp = cls()
-
-        template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
-        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
-
-        # Print inputs
-        if print_inputs:
-            txt = 'FitPlane.from_template_centers('
-            txt = txt + json.dumps(template_center_positions_uv_pix.tolist()) + ','
-            txt = txt + json.dumps(template_center_positions_xyz_um.tolist()) + ')'
-            print(txt)
 
         # Input check
+        template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
+        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
         if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
             raise ValueError("Number of points should be the same between " + 
                 "template_center_positions_uv_pix, template_center_positions_xyz_um")
-        
-        fp._fit_from_templates(
-            template_center_positions_uv_pix, 
-            template_center_positions_xyz_um)
+        if template_center_positions_uv_pix.shape[1] != 2:
+            raise ValueError("Number of elements in template_center_positions_uv_pix should be two")
+        if template_center_positions_xyz_um.shape[1] != 3:
+            raise ValueError("Number of elements in template_center_positions_xyz_um should be three")
+        if forced_plane_norm is not None:
+            forced_plane_norm = np.array(forced_plane_norm)
+            if forced_plane_norm.shape[0] != 3:
+                raise ValueError("forced_plane_norm should be 3D vector")
+
+        # Print inputs
+        if print_inputs:
+            txt = ("FitPlane.from_template_centers(" +
+                   json.dumps(template_center_positions_uv_pix.tolist()) + "," +
+                   json.dumps(template_center_positions_xyz_um.tolist()))
+            
+            if forced_plane_norm is not None:
+                txt += ',' + json.dumps(forced_plane_norm.tolist())
+
+            txt += ')'
+            print(txt)
+
+        # Construct measurement matrix
+        u_pt = np.array([x[0] for x in template_center_positions_uv_pix])
+        v_pt = np.array([x[1] for x in template_center_positions_uv_pix])
+        x_pt = np.array([x[0] for x in template_center_positions_xyz_um])
+        y_pt = np.array([x[1] for x in template_center_positions_xyz_um])
+        z_pt = np.array([x[2] for x in template_center_positions_xyz_um])
+
+        # Number of points
+        n = u_pt.shape[0]
+
+        A = np.zeros((3 * n, 9))
+        for i in range(n):
+            A[3 * i + 0] = [u_pt[i], v_pt[i], 1, 0, 0, 0, 0, 0, 0] # x equation
+            A[3 * i + 1] = [0, 0, 0, u_pt[i], v_pt[i], 1, 0, 0, 0] # y equation
+            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u_pt[i], v_pt[i], 1] # z equation
+
+        # Output vector b
+        b = np.zeros(3 * n)
+        for i in range(n):
+            b[3 * i + 0] = x_pt[i]
+            b[3 * i + 1] = y_pt[i]
+            b[3 * i + 2] = z_pt[i]
+
+        # Solve using least squares
+        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) 
+        ux, vx, hx, uy, vy, hy, uz, vz, hz = M
+
+        fp = cls(
+            u_mm = np.array([ux, uy, uz]),
+            v_mm = np.array([vx, vy, vz]),
+            h_mm = np.array([hx, hy, hz]))
 
         return fp
         
@@ -76,41 +119,6 @@ class FitPlane:
             'h': self.h.tolist(),
             })
     
-    """ End constructor methods """    
-    def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
-        """
-        Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
-        """
-        u = np.array([x[0] for x in template_center_positions_uv_pix])
-        v = np.array([x[1] for x in template_center_positions_uv_pix])
-
-        x = np.array([x[0] for x in template_center_positions_xyz_um])
-        y = np.array([x[1] for x in template_center_positions_xyz_um])
-        z = np.array([x[2] for x in template_center_positions_xyz_um])
-
-        # Number of points
-        n = u.shape[0]
-
-        A = np.zeros((3 * n, 9))
-        for i in range(n):
-            A[3 * i] = [u[i], v[i], 1, 0, 0, 0, 0, 0, 0]      # x equation
-            A[3 * i + 1] = [0, 0, 0, u[i], v[i], 1, 0, 0, 0]  # y equation
-            A[3 * i + 2] = [0, 0, 0, 0, 0, 0, u[i], v[i], 1]  # z equation
-
-        # Output vector b
-        b = np.zeros(3 * n)
-        for i in range(n):
-            b[3 * i] = x[i]
-            b[3 * i + 1] = y[i]
-            b[3 * i + 2] = z[i]
-
-        # Solve using least squares
-        M, residuals, rank, s = np.linalg.lstsq(A, b, rcond=None) 
-        ux, vx, hx, uy, vy, hy, uz, vz, hz = M
-
-        self.u = np.array([ux, uy, uz])
-        self.v = np.array([vx, vy, vz])
-        self.h = np.array([hx, hy, hz])
               
     def u_norm_mm(self):
         """ Return the size of pixel u in mm """

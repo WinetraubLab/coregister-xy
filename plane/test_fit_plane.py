@@ -26,4 +26,18 @@ class TestFitPlane(unittest.TestCase):
     def test_fit_mapping(self):
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
         FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_1, print_inputs=False) 
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False) 
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False)
+
+    def test_error_raised_when_input_shape_is_wrong(self):
+        # Check number of elements in uv vector different from number of elements in xyz vector 
+        with self.assertRaises(ValueError):    
+            FitPlane.from_template_centers([[0,1],[0,2],[0,3]],[[0,1,0],[0,2,0]])
+
+        # Check number of elements in uv vector is not two
+        with self.assertRaises(ValueError):
+            FitPlane.from_template_centers([[0,1],[0,2],[0,3]],[[0,1],[0,2],[0,3]])
+
+        # Check number of elements in xyz vector is not three
+        with self.assertRaises(ValueError):
+            FitPlane.from_template_centers([[0,1,0],[0,2,0],[0,3,0]],[[0,1,0],[0,2,0],[0,3,0]])
+        
