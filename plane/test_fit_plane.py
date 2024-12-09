@@ -53,8 +53,20 @@ class TestFitPlane(unittest.TestCase):
         fp = FitPlane.from_template_centers(uv,xyz)
         self.assertLess(np.dot(n,np.array([0,0,1])),0.9)
 
-        # Make sure plane fitted norm fits the desired direction
+        # Make sure plane fitted norm fits the desired direction.
         fp_n = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = n)
         self.assertAlmostEqual(np.dot(fp_n.normal_direction(),n),1, places=1)
+
+        # Fit with constrain, but the constrain is not needed, as it is being satisfied anyways.
+        fp2 = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = fp.normal_direction())
+        self.assertAlmostEqual(fp.u[0],fp2.u[0])
+        self.assertAlmostEqual(fp.u[1],fp2.u[1])
+        self.assertAlmostEqual(fp.u[2],fp2.u[2])
+        self.assertAlmostEqual(fp.v[0],fp2.v[0])
+        self.assertAlmostEqual(fp.v[1],fp2.v[1])
+        self.assertAlmostEqual(fp.v[2],fp2.v[2])
+        self.assertAlmostEqual(fp.h[0],fp2.h[0])
+        self.assertAlmostEqual(fp.h[1],fp2.h[1])
+        self.assertAlmostEqual(fp.h[2],fp2.h[2])
 
 
