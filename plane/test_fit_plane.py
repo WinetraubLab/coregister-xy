@@ -41,7 +41,7 @@ class TestFitPlane(unittest.TestCase):
         with self.assertRaises(ValueError):
             FitPlane.from_template_centers([[0,1,0],[0,2,0],[0,3,0]],[[0,1,0],[0,2,0],[0,3,0]])
 
-    def test_fit_with_constrains(self):
+    def test_fit_with_force_normal_constrains(self):
         uv = [[0,0],[1,0],[0,1]]
         xyz = [[0,0,0],[1,0,0],[0,1,0]]
 
