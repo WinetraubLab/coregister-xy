@@ -15,38 +15,38 @@ class FitPlane:
         #     self._check_u_v_consistency_assumptions()
     
     @classmethod
-    def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_um, print_inputs = False):
+    def from_template_centers(cls, template_center_positions_uv_pix, template_center_positions_xyz_mm, print_inputs = False):
         """
         This function initializes a FitPlane by a list of points for template centers.
 
         INPUTS:
             template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
                 array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
-            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
-                position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
+            template_center_positions_xyz_mm: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
+                position (in mm) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
         fp = cls()
 
         template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
-        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
+        template_center_positions_xyz_mm = np.array(template_center_positions_xyz_mm)
 
         # Print inputs
         if print_inputs:
             txt = 'FitPlane.from_template_centers('
             txt = txt + json.dumps(template_center_positions_uv_pix.tolist()) + ','
-            txt = txt + json.dumps(template_center_positions_xyz_um.tolist()) + ')'
+            txt = txt + json.dumps(template_center_positions_xyz_mm.tolist()) + ')'
             print(txt)
 
         # Input check
-        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_mm.shape[0]):
             raise ValueError("Number of points should be the same between " + 
-                "template_center_positions_uv_pix, template_center_positions_xyz_um")
+                "template_center_positions_uv_pix, template_center_positions_xyz_mm")
         
         fp._fit_from_templates(
             template_center_positions_uv_pix, 
-            template_center_positions_xyz_um)
+            template_center_positions_xyz_mm)
                 
         # if fp.u is not None:
         #     fp._check_u_v_consistency_assumptions()
@@ -79,16 +79,16 @@ class FitPlane:
             })
     
     """ End constructor methods """    
-    def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_um):
+    def _fit_from_templates(self, template_center_positions_uv_pix, template_center_positions_xyz_mm):
         """
         Calculate a mapping with vectors u, v, h to project points from uv coordinates to xyz physical locations.
         """
         u = np.array([x[0] for x in template_center_positions_uv_pix])
         v = np.array([x[1] for x in template_center_positions_uv_pix])
 
-        x = np.array([x[0] for x in template_center_positions_xyz_um])
-        y = np.array([x[1] for x in template_center_positions_xyz_um])
-        z = np.array([x[2] for x in template_center_positions_xyz_um])
+        x = np.array([x[0] for x in template_center_positions_xyz_mm])
+        y = np.array([x[1] for x in template_center_positions_xyz_mm])
+        z = np.array([x[2] for x in template_center_positions_xyz_mm])
 
         # Number of points
         n = u.shape[0]
@@ -327,18 +327,13 @@ class FitPlane:
         norm = np.sqrt(a_out**2 + b_out**2)
         return (a_out/norm, b_out/norm, c_out/norm)
     
-    def avg_in_plane_projection_error(self, xyz1, xyz2):
-        """ Find in-plane error between two sets of xyz points. Considers x and y only.
+    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm):
         """
-        xyz1 = np.array(xyz1[:,:2])
-        xyz2 = np.array(xyz2[:,:2])
-        assert xyz1.shape == xyz2.shape, "UV and XYZ arrays must have the same shape"
-        return np.sqrt(np.sum(mean_absolute_error(xyz1, xyz2, multioutput='raw_values')**2))
-
-    def avg_out_of_plane_projection_error(self, xyz1, xyz2):
-        """ Find out-of-plane error between two sets of xyz points. Considers z only.
+        uv_pix: coordinates in pixels, array shape (2,n)
+        xyz_mm: coordinates in mm, array shape (3,n)
+        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
         """
-        xyz1 = np.array(xyz1[:,2])
-        xyz2 = np.array(xyz2[:,2])
-        assert xyz1.shape == xyz2.shape, "UV and XYZ arrays must have the same shape"
-        return mean_absolute_error(xyz1, xyz2)
+        uv_to_xyz = np.array([self.get_xyz_from_uv(p) for p in uv_pix])
+        in_plane = np.sqrt(np.sum(mean_absolute_error(uv_to_xyz[:,:2], xyz_mm[:,:2], multioutput='raw_values')**2))
+        out_plane = mean_absolute_error(uv_to_xyz[:,2], xyz_mm[:,2])
+        return in_plane, out_plane
