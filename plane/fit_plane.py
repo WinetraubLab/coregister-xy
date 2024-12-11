@@ -215,62 +215,6 @@ class FitPlane:
         z_angle = np.degrees(np.arccos(dot_product))
         return z_angle  
 
-    def get_v_line_fit_plane_intercept(self, line_position_mm):
-        """ 
-        Returns a,b,c that correspond to the equation a*u+b*v+c=0. 
-        u,v are in pixels. a^2+b^2=1
-        The equation corresponds to where on the image plane intersects a vertical
-        line x=line_position_mm.
-        """
-    
-        # Get equation (ax+by+cz+d=0), make a function to generate a point on plane
-        [a,b,c,d] = self.get_plane_equation() 
-        def gen_point(z):
-            # Auxilary function to generate a point on the plane given arbitrary z
-            x = line_position_mm
-            y = -(a*x+c*z+d)/b 
-            z = z 
-            return [x,y,z]
-
-        # Using two arbitrary points, form the output equation
-        pt1 = self.get_uv_from_xyz(gen_point(0))
-        pt2 = self.get_uv_from_xyz(gen_point(1))
-        a_out = pt2[1]-pt1[1]
-        b_out = pt2[0]-pt1[0]
-        c_out = pt2[0]*pt1[1] - pt1[0]*pt2[1]
-
-        # Normalize
-        norm = np.sqrt(a_out**2 + b_out**2)
-        return (a_out/norm, b_out/norm, c_out/norm)
-
-    def get_h_line_fit_plane_intercept(self, line_position_mm):
-        """ 
-        Returns a,b,c that correspond to the equation a*u+b*v+c=0. 
-        u,v are in pixels. a^2+b^2=1
-        The equation corresponds to where on the image plane intersects a horizontal 
-        line y=line_position_mm.
-        """
-    
-        # Get equation (ax+by+cz+d=0), make a function to generate a point on plane
-        [a,b,c,d] = self.get_plane_equation() 
-        def gen_point(z):
-            # Auxilary function to generate a point on the plane given arbitrary z
-            y = line_position_mm
-            x = -(b*y+c*z+d)/a 
-            z = z 
-            return [x,y,z]
-
-        # Using two arbitrary points, form the output equation
-        pt1 = self.get_uv_from_xyz(gen_point(0))
-        pt2 = self.get_uv_from_xyz(gen_point(1))
-        a_out = pt2[1]-pt1[1]
-        b_out = pt2[0]-pt1[0]
-        c_out = pt2[0]*pt1[1] - pt1[0]*pt2[1]
-
-        # Normalize
-        norm = np.sqrt(a_out**2 + b_out**2)
-        return (a_out/norm, b_out/norm, c_out/norm)
-
     def image_to_physical(self, cv2_image,
                           x_range_mm=[-1,1], y_range_mm=[-1,1], pixel_size_mm = 1e-3):
         """
