@@ -43,6 +43,27 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
 
+    def test_distance_metrics(self):
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
+        i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_um))
+        self.assertAlmostEqual(i,0)
+        self.assertAlmostEqual(o,0)
+
+        # Construct a second test case not parallel to xy-plane
+        u = [1,0,1]
+        v = [-1,0,1]
+        h = [0,0,0]
+        xyz = []
+        xyz_2 = []
+        for p in self.template_center_positions_uv_pix:
+            p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
+            xyz.append(p2)
+            # manually perturb original points
+            xyz_2.append([p2[0]-1, p2[1], p2[2]-5])
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        i,o = fp.get_template_center_positions_distance_metrics(self.template_center_positions_uv_pix, np.array(xyz_2))
+        self.assertAlmostEqual(i,1)
+        self.assertAlmostEqual(o,5)
 
     def test_error_raised_when_input_shape_is_wrong(self):
         # Check number of elements in uv vector different from number of elements in xyz vector 
