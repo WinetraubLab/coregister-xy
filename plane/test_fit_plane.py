@@ -10,14 +10,14 @@ class TestFitPlane(unittest.TestCase):
 
     def setUp(self):
         self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]
-        self.template_center_positions_xyz_um = [[0,1,0],[1,0,0],[1,1,0]]
+        self.template_center_positions_xyz_mm = [[0,1,0],[1,0,0],[1,1,0]]
 
     def test_main_function_runs(self):
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=True)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
 
     def test_fit_mapping(self):
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         self.assertAlmostEqual(fp.u[0], 1)
         self.assertAlmostEqual(fp.u[1], 0)
         self.assertAlmostEqual(fp.u[2], 0)
@@ -44,8 +44,8 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(h[i], fp.h[i])
 
     def test_distance_metrics(self):
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um, print_inputs=False)
-        i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_um))
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))
         self.assertAlmostEqual(i,0)
         self.assertAlmostEqual(o,0)
 

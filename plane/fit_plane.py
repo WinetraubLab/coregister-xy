@@ -19,7 +19,7 @@ class FitPlane:
     
     @classmethod
     def from_template_centers(
-        cls, template_center_positions_uv_pix, template_center_positions_xyz_um,
+        cls, template_center_positions_uv_pix, template_center_positions_xyz_mm,
         forced_plane_normal = None, 
         print_inputs = False):
         """
@@ -28,7 +28,7 @@ class FitPlane:
         INPUTS:
             template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
                 array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
-            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
+            template_center_positions_xyz_mm: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
                 position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
             forced_plane_normal: When set to a 3D vector, will find the best plane fit that also satisfies u cross v is plane norm.
@@ -37,14 +37,14 @@ class FitPlane:
 
         # Input check
         template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
-        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
-        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
+        template_center_positions_xyz_mm = np.array(template_center_positions_xyz_mm)
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_mm.shape[0]):
             raise ValueError("Number of points should be the same between " + 
-                "template_center_positions_uv_pix, template_center_positions_xyz_um")
+                "template_center_positions_uv_pix, template_center_positions_xyz_mm")
         if template_center_positions_uv_pix.shape[1] != 2:
             raise ValueError("Number of elements in template_center_positions_uv_pix should be two")
-        if template_center_positions_xyz_um.shape[1] != 3:
-            raise ValueError("Number of elements in template_center_positions_xyz_um should be three")
+        if template_center_positions_xyz_mm.shape[1] != 3:
+            raise ValueError("Number of elements in template_center_positions_xyz_mm should be three")
         if forced_plane_normal is not None:
             forced_plane_normal = np.array(forced_plane_normal)
             if forced_plane_normal.shape[0] != 3:
@@ -55,18 +55,18 @@ class FitPlane:
         if print_inputs:
             txt = ("FitPlane.from_template_centers(" +
                    json.dumps(template_center_positions_uv_pix.tolist()) + "," +
-                   json.dumps(template_center_positions_xyz_um.tolist()))   
+                   json.dumps(template_center_positions_xyz_mm.tolist()))   
             if forced_plane_normal is not None:
-                txt += ',' + json.dumps(forced_plane_norm.tolist())
+                txt += ',' + json.dumps(forced_plane_normal.tolist())
             txt += ')'
             print(txt)
 
         # Construct measurement matrix
         u_pt = np.array([x[0] for x in template_center_positions_uv_pix])
         v_pt = np.array([x[1] for x in template_center_positions_uv_pix])
-        x_pt = np.array([x[0] for x in template_center_positions_xyz_um])
-        y_pt = np.array([x[1] for x in template_center_positions_xyz_um])
-        z_pt = np.array([x[2] for x in template_center_positions_xyz_um])
+        x_pt = np.array([x[0] for x in template_center_positions_xyz_mm])
+        y_pt = np.array([x[1] for x in template_center_positions_xyz_mm])
+        z_pt = np.array([x[2] for x in template_center_positions_xyz_mm])
 
         # Number of points
         n = u_pt.shape[0]
