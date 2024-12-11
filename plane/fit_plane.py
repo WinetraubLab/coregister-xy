@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from scipy.optimize import minimize
+import cv2
 
 class FitPlane:
     
@@ -268,3 +269,50 @@ class FitPlane:
         # Normalize
         norm = np.sqrt(a_out**2 + b_out**2)
         return (a_out/norm, b_out/norm, c_out/norm)
+
+    def image_to_physical(self, cv2_image,
+                          x_range_mm=[-1,1], y_range_mm=[-1,1], pixel_size_mm = 1e-3):
+        """
+        This function takes a picture (cv2_image) with coordinates u,v and project it to real space within range x_range_mm, y_range_mm.
+        Projected image is returned.
+        This function assumes that plane normal is more or less perpadicular to xy plane.
+        """
+
+        # Input checks
+        x_range_mm = np.array(x_range_mm)
+        y_range_mm = np.array(y_range_mm)
+        img_height, img_width = cv2_image.shape[:2]
+
+        # Check that the normal direction is very close to z.
+        n = self.normal_direction()
+        if np.sqrt(n[0]**2+n[1]**2) > 0.05:
+            raise NotImplementedError(f'Normal direction must be close to z. n is [{n[0]},{n[1]},{n[2]}]')
+
+        # Define the edges of the transofmation
+        def source(x,y):
+            vec = self.get_uv_from_xyz([x, y, self.distance_from_origin_mm()])
+            return(vec[0], vec[1])
+        def dest(x,y):
+            return( (x-x_range_mm[0])/pixel_size_mm, (y-y_range_mm[0])/pixel_size_mm )
+        pt0_source = source(x_range_mm[0], y_range_mm[0])
+        pt1_source = source(x_range_mm[0], y_range_mm[1])
+        pt2_source = source(x_range_mm[1], y_range_mm[1])
+        pt0_dest = dest(x_range_mm[0], y_range_mm[0])
+        pt1_dest = dest(x_range_mm[0], y_range_mm[1])
+        pt2_dest = dest(x_range_mm[1], y_range_mm[1])
+
+        # Get the affine transformation matrix
+        M = cv2.getAffineTransform(
+            np.float32([pt0_source, pt1_source, pt2_source]),
+            np.float32([pt0_dest, pt1_dest, pt2_dest]),
+            )
+
+        # Apply the affine transformation using warpAffine
+        width, height = dest(x_range_mm[1], y_range_mm[1])
+        width = int(width)
+        height = int(height)
+        transformed_image = cv2.warpAffine(
+            cv2_image, M, (width, height), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
+        return transformed_image
+
+        

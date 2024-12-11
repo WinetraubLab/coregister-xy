@@ -4,6 +4,7 @@ import numpy as np
 import numpy.testing as npt
 import unittest
 from plane.fit_plane import FitPlane
+import cv2
 
 class TestFitPlane(unittest.TestCase):
 
@@ -69,4 +70,87 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(fp.h[1],fp2.h[1])
         self.assertAlmostEqual(fp.h[2],fp2.h[2])
 
+    def test_image_to_physical_output_size(self):
+        # Create dummy plane with a random image
+        uv = [[0,0],[100,0],[0,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        fp = FitPlane.from_template_centers(uv,xyz)
+        random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
+        # Map that image to physical space
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[-0.5,0.5], y_range_mm=[-1,1], pixel_size_mm=1e-3)
+        y_size, x_size, _ = mapped_image.shape
+
+        # Verify size is correct
+        self.assertEqual(y_size,2*1/1e-3)
+        self.assertEqual(x_size,2*0.5/1e-3)
+
+        # Map that image to physical space (no mapping), see that pixel values are the same
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        self.assertAlmostEqual(random_image[0,0,0],mapped_image[0,0,0])
+        self.assertAlmostEqual(random_image[10,10,1],mapped_image[10,10,1])
+        self.assertAlmostEqual(random_image[50,50,2],mapped_image[50,50,2])
+
+    def test_image_to_physical_translations(self):
+        # Create dummy plane with a random image
+        uv = [[0,0],[100,0],[0,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        fp = FitPlane.from_template_centers(uv,xyz)
+        np.random.seed(42)
+        random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
+
+        # Map that image to the right, see that filled with black
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[-0.1,0.9], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[0,0,0],0)
+        self.assertAlmostEqual(mapped_image[0,0,1],0)
+        self.assertAlmostEqual(mapped_image[0,0,2],0)
+        self.assertAlmostEqual(mapped_image[11,0,0],0)
+        self.assertGreater(mapped_image[10,30,0],0) # Area which shouldn't be effected
+
+        # Map that image to the left, see that filled with black
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0.1,1.1], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[0,100-5,0],0)
+        self.assertAlmostEqual(mapped_image[0,100-5,1],0)
+        self.assertAlmostEqual(mapped_image[0,100-5,2],0)
+        self.assertAlmostEqual(mapped_image[10,100-5,0],0)
+        self.assertGreater(mapped_image[10,100-11,0],0) # Area which shouldn't be effected
+
+        # Map that image down, see that filled with black
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[-0.1,2.9], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[0,0,0],0)
+        self.assertAlmostEqual(mapped_image[0,0,1],0)
+        self.assertAlmostEqual(mapped_image[0,0,2],0)
+        self.assertAlmostEqual(mapped_image[0,11,0],0)
+        self.assertGreater(mapped_image[30,11,0],0) # Area which shouldn't be effected
+
+        # Map that image up, see that filled with black
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[300-5,0,0],0)
+        self.assertAlmostEqual(mapped_image[300-5,0,1],0)
+        self.assertAlmostEqual(mapped_image[300-5,0,2],0)
+        self.assertAlmostEqual(mapped_image[300-5,10,0],0)
+        self.assertGreater(mapped_image[300-11,10,0],0) # Area which shouldn't be effected
+
+        # Map that image up, see that filled with black
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[300-5,0,0],0)
+        self.assertAlmostEqual(mapped_image[300-5,0,1],0)
+        self.assertAlmostEqual(mapped_image[300-5,0,2],0)
+        self.assertAlmostEqual(mapped_image[300-5,10,0],0)
+        self.assertGreater(mapped_image[300-11,10,0],0) # Area which shouldn't be effected
+
+        # Shift to arbitrary point
+        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0.2,1.2], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        #self.show_image(mapped_image) # uncomment for debug
+        self.assertAlmostEqual(mapped_image[0,0,0],random_image[10,20,0])
+        
+
+    def show_image(self, image): # Use for debugging
+        cv2.imshow('Image', image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
