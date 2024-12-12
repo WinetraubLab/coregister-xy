@@ -10,24 +10,60 @@ class TestFitPlane(unittest.TestCase):
 
     def setUp(self):
         self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]
-
-        # rotation around y axis.
-        self.template_center_positions_xyz_um_1 = [[0,1,0], [0.9994, 0, -0.0349], [0.9994,1,-0.0349]] 
-
-        # rotation around z axis. 
-        self.template_center_positions_xyz_um_2 = [[0.035, 0.9994,5], [0.9994, -0.0349, 5], [1.0343, 0.9645, 5]] 
-
-        # rotation around x axis.
-        self.template_center_positions_xyz_um_3 = [[0,0.9994,0.0349], [0.9994,0.0012,-0.0349], [0.9994,1.0006,0.00002]]
+        self.template_center_positions_xyz_mm = [[0,1,0],[1,0,0],[1,1,0]]
 
     def test_main_function_runs(self):
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=True)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
 
     def test_fit_mapping(self):
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_2, print_inputs=False)
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_1, print_inputs=False) 
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_um_3, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        self.assertAlmostEqual(fp.u[0], 1)
+        self.assertAlmostEqual(fp.u[1], 0)
+        self.assertAlmostEqual(fp.u[2], 0)
+        self.assertAlmostEqual(fp.v[0], 0)
+        self.assertAlmostEqual(fp.v[1], 1)
+        self.assertAlmostEqual(fp.v[2], 0)
+        self.assertAlmostEqual(fp.h[0], 0)
+        self.assertAlmostEqual(fp.u[1], 0)
+        self.assertAlmostEqual(fp.u[2], 0)
+
+        # Construct a case with randomly specified u,v,h vectors
+        u = [2,1,0]
+        v = [0,3,2]
+        h = [10,15,12]
+        xyz = []
+        for p in self.template_center_positions_uv_pix:
+            p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
+            xyz.append(p2)
+        
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        for i in range(0,3):
+                self.assertAlmostEqual(u[i], fp.u[i])
+                self.assertAlmostEqual(v[i], fp.v[i])
+                self.assertAlmostEqual(h[i], fp.h[i])
+
+    def test_distance_metrics(self):
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))
+        self.assertAlmostEqual(i,0)
+        self.assertAlmostEqual(o,0)
+
+        # Construct a second test case not parallel to xy-plane
+        u = [1,0,1]
+        v = [-1,0,1]
+        h = [0,0,0]
+        xyz = []
+        xyz_2 = []
+        for p in self.template_center_positions_uv_pix:
+            p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
+            xyz.append(p2)
+            # manually perturb original points
+            xyz_2.append([p2[0]-1, p2[1], p2[2]-5])
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        i,o = fp.get_template_center_positions_distance_metrics(self.template_center_positions_uv_pix, np.array(xyz_2))
+        self.assertAlmostEqual(i,1)
+        self.assertAlmostEqual(o,5)
 
     def test_error_raised_when_input_shape_is_wrong(self):
         # Check number of elements in uv vector different from number of elements in xyz vector 

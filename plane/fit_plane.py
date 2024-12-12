@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from scipy.optimize import minimize
+from sklearn.metrics import mean_absolute_error
 import cv2
 
 class FitPlane:
@@ -18,7 +19,7 @@ class FitPlane:
     
     @classmethod
     def from_template_centers(
-        cls, template_center_positions_uv_pix, template_center_positions_xyz_um,
+        cls, template_center_positions_uv_pix, template_center_positions_xyz_mm,
         forced_plane_normal = None, 
         print_inputs = False):
         """
@@ -27,7 +28,7 @@ class FitPlane:
         INPUTS:
             template_center_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
                 array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
-            template_center_positions_xyz_um: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
+            template_center_positions_xyz_mm: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
                 position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
             forced_plane_normal: When set to a 3D vector, will find the best plane fit that also satisfies u cross v is plane norm.
@@ -36,14 +37,14 @@ class FitPlane:
 
         # Input check
         template_center_positions_uv_pix = np.array(template_center_positions_uv_pix)
-        template_center_positions_xyz_um = np.array(template_center_positions_xyz_um)
-        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_um.shape[0]):
+        template_center_positions_xyz_mm = np.array(template_center_positions_xyz_mm)
+        if (template_center_positions_uv_pix.shape[0] != template_center_positions_xyz_mm.shape[0]):
             raise ValueError("Number of points should be the same between " + 
-                "template_center_positions_uv_pix, template_center_positions_xyz_um")
+                "template_center_positions_uv_pix, template_center_positions_xyz_mm")
         if template_center_positions_uv_pix.shape[1] != 2:
             raise ValueError("Number of elements in template_center_positions_uv_pix should be two")
-        if template_center_positions_xyz_um.shape[1] != 3:
-            raise ValueError("Number of elements in template_center_positions_xyz_um should be three")
+        if template_center_positions_xyz_mm.shape[1] != 3:
+            raise ValueError("Number of elements in template_center_positions_xyz_mm should be three")
         if forced_plane_normal is not None:
             forced_plane_normal = np.array(forced_plane_normal)
             if forced_plane_normal.shape[0] != 3:
@@ -54,18 +55,18 @@ class FitPlane:
         if print_inputs:
             txt = ("FitPlane.from_template_centers(" +
                    json.dumps(template_center_positions_uv_pix.tolist()) + "," +
-                   json.dumps(template_center_positions_xyz_um.tolist()))   
+                   json.dumps(template_center_positions_xyz_mm.tolist()))   
             if forced_plane_normal is not None:
-                txt += ',' + json.dumps(forced_plane_norm.tolist())
+                txt += ',' + json.dumps(forced_plane_normal.tolist())
             txt += ')'
             print(txt)
 
         # Construct measurement matrix
         u_pt = np.array([x[0] for x in template_center_positions_uv_pix])
         v_pt = np.array([x[1] for x in template_center_positions_uv_pix])
-        x_pt = np.array([x[0] for x in template_center_positions_xyz_um])
-        y_pt = np.array([x[1] for x in template_center_positions_xyz_um])
-        z_pt = np.array([x[2] for x in template_center_positions_xyz_um])
+        x_pt = np.array([x[0] for x in template_center_positions_xyz_mm])
+        y_pt = np.array([x[1] for x in template_center_positions_xyz_mm])
+        z_pt = np.array([x[2] for x in template_center_positions_xyz_mm])
 
         # Number of points
         n = u_pt.shape[0]
@@ -214,62 +215,6 @@ class FitPlane:
         z_angle = np.degrees(np.arccos(dot_product))
         return z_angle  
 
-    def get_v_line_fit_plane_intercept(self, line_position_mm):
-        """ 
-        Returns a,b,c that correspond to the equation a*u+b*v+c=0. 
-        u,v are in pixels. a^2+b^2=1
-        The equation corresponds to where on the image plane intersects a vertical
-        line x=line_position_mm.
-        """
-    
-        # Get equation (ax+by+cz+d=0), make a function to generate a point on plane
-        [a,b,c,d] = self.get_plane_equation() 
-        def gen_point(z):
-            # Auxilary function to generate a point on the plane given arbitrary z
-            x = line_position_mm
-            y = -(a*x+c*z+d)/b 
-            z = z 
-            return [x,y,z]
-
-        # Using two arbitrary points, form the output equation
-        pt1 = self.get_uv_from_xyz(gen_point(0))
-        pt2 = self.get_uv_from_xyz(gen_point(1))
-        a_out = pt2[1]-pt1[1]
-        b_out = pt2[0]-pt1[0]
-        c_out = pt2[0]*pt1[1] - pt1[0]*pt2[1]
-
-        # Normalize
-        norm = np.sqrt(a_out**2 + b_out**2)
-        return (a_out/norm, b_out/norm, c_out/norm)
-
-    def get_h_line_fit_plane_intercept(self, line_position_mm):
-        """ 
-        Returns a,b,c that correspond to the equation a*u+b*v+c=0. 
-        u,v are in pixels. a^2+b^2=1
-        The equation corresponds to where on the image plane intersects a horizontal 
-        line y=line_position_mm.
-        """
-    
-        # Get equation (ax+by+cz+d=0), make a function to generate a point on plane
-        [a,b,c,d] = self.get_plane_equation() 
-        def gen_point(z):
-            # Auxilary function to generate a point on the plane given arbitrary z
-            y = line_position_mm
-            x = -(b*y+c*z+d)/a 
-            z = z 
-            return [x,y,z]
-
-        # Using two arbitrary points, form the output equation
-        pt1 = self.get_uv_from_xyz(gen_point(0))
-        pt2 = self.get_uv_from_xyz(gen_point(1))
-        a_out = pt2[1]-pt1[1]
-        b_out = pt2[0]-pt1[0]
-        c_out = pt2[0]*pt1[1] - pt1[0]*pt2[1]
-
-        # Normalize
-        norm = np.sqrt(a_out**2 + b_out**2)
-        return (a_out/norm, b_out/norm, c_out/norm)
-
     def image_to_physical(self, cv2_image,
                           x_range_mm=[-1,1], y_range_mm=[-1,1], pixel_size_mm = 1e-3):
         """
@@ -315,4 +260,13 @@ class FitPlane:
             cv2_image, M, (width, height), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
         return transformed_image
 
-        
+    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm):
+        """ 
+        uv_pix: coordinates in pixels, array shape (2,n)
+        xyz_mm: coordinates in mm, array shape (3,n)
+        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
+        """
+        uv_to_xyz = np.array([self.get_xyz_from_uv(p) for p in uv_pix])
+        in_plane = np.sqrt(np.sum(mean_absolute_error(uv_to_xyz[:,:2], xyz_mm[:,:2], multioutput='raw_values')**2))
+        out_plane = np.mean(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        return in_plane, out_plane
