@@ -11,7 +11,7 @@ class FitTemplate:
         self.scale, self.theta_deg, self.shear_magnitude, self.shear_vector, self.tx, self.ty = self._compute_physical(self.M)
 
     @classmethod
-    def from_imagej_xml(cls, trakem_filepath, source_patch_number, dest_patch_number, landmarks_filepath=None):
+    def from_imagej_xml(cls, trakem_filepath, source_patch_number, dest_patch_number, landmarks_filepath=None, multi=False):
         """
         Function to get transform matrix, source and dest points from XML file of TrakEM2 project.
         Inputs:
@@ -59,11 +59,18 @@ class FitTemplate:
         source_points = np.array(source_points)
         dest_points = np.array(dest_points)
 
-        return cls(
-            M = source_transform,
-            source_points = source_points,
-            dest_points = dest_points
-        )
+        if multi:
+            return cls(
+                M = dest_transform,
+                source_points = dest_points,
+                dest_points = source_points
+            )
+        else:
+            return cls(
+                M = source_transform,
+                source_points = source_points,
+                dest_points = dest_points
+            )
     
     def set_M(self, M):
         """Set or update M."""
