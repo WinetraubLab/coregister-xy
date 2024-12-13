@@ -1,6 +1,6 @@
 % This script will generate a 3D volume of how the XY pattern should appear
 % in the tissue
-
+clearvars
 % Load the pattern
 [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_start_end_mm] = ...
     generateXYPattern(false);
@@ -23,9 +23,6 @@ oct_scan_mm = [-0.25 0.25]; % OCT x-y scan size
 % If you don't want to plot oct_scan_mm, un-comment:
 % oct_scan_mm = nan;
 
-% Simulation output
-output_tiff_file = 'out_xy.tiff';
-
 %% Configurable Parameters
 % Gausian base waist
 w0_mm = 1/pi*lambda_mm*n/NA;
@@ -34,9 +31,10 @@ zR_mm = pi*w0_mm^2/lambda_mm;
 %% Create a gread
 [xx_mm, yy_mm] = meshgrid(x_grid_mm,y_grid_mm);
 pixel_size_mm = diff(x_grid_mm(1:2));
+disp(pixel_size_mm);
 
 % Loop for each plane in z
-isFirstLoop=true;
+isFirstLoop=false;
 for z=fliplr(z_grid_mm) % Start at the bottom for ImageJ orientation
     c_all = ones(size(xx_mm));
 
@@ -76,21 +74,37 @@ for z=fliplr(z_grid_mm) % Start at the bottom for ImageJ orientation
     if all(~isnan(oct_scan_mm))
         c_all = addOCTScanRectangle(c_all, xx_mm, yy_mm, oct_scan_mm,pixel_size_mm);
     end
-
-    % Write z depth
-    c_all = rgb2gray(insertText(c_all,[size(c_all,2)/2 0],...
-        sprintf('z=%.1fum',z*1e3),...
-        'FontSize',20,'AnchorPoint','CenterTop'));
-
-    % Save to disk
-    if isFirstLoop
-        imwrite(c_all,output_tiff_file,...
-            'Description',' ' ... Description contains min & max values
-            );
-        isFirstLoop = false;
+    
+    c_all = rgb2gray(insertText(c_all, [size(c_all,2)/2 0], ...
+        sprintf('z=%.1fum', z*1e3), ...
+        'FontSize', 20, 'AnchorPoint', 'CenterTop'));
+    
+    % Convert to uint8 if the image is in double format
+    if isa(c_all, 'double')
+        c_all_uint8 = im2uint8(c_all); % Convert to uint8
     else
-        imwrite(c_all,output_tiff_file,'writeMode','append');     
+        c_all_uint8 = uint8(c_all); % Ensure it's uint8
     end
+
+    % Simulation output
+    output_filepath = 'out_xy.tif'
+    output_tiff_file = Tiff(output_filepath, 'a');
+    
+    % Set TIFF tags
+    tagstruct1.ImageLength = size(c_all_uint8, 1);
+    tagstruct1.ImageWidth = size(c_all_uint8, 2);
+    tagstruct1.Photometric = Tiff.Photometric.MinIsBlack; % Grayscale setting
+    tagstruct1.PlanarConfiguration = Tiff.PlanarConfiguration.Chunky;
+    tagstruct1.RowsPerStrip = 16;
+    tagstruct1.BitsPerSample = 8; % 8 bits per sample
+    tagstruct1.SamplesPerPixel = 1; % Grayscale image
+    tagstruct1.ResolutionUnit = Tiff.ResolutionUnit.Centimeter;
+    tagstruct1.XResolution = 10/pixel_size_mm;
+    tagstruct1.YResolution = 10/pixel_size_mm;
+    % Write the tags and image to the TIFF file
+    output_tiff_file.setTag(tagstruct1); % Set TIFF metadata
+    output_tiff_file.write(c_all_uint8); % Write uint8 image data to file
+    output_tiff_file.close(); % Close the TIFF file
     
     % Present to user
     figure(27);
