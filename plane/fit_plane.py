@@ -268,5 +268,5 @@ class FitPlane:
         """
         uv_to_xyz = np.array([self.get_xyz_from_uv(p) for p in uv_pix])
         in_plane = np.sqrt(np.sum(mean_absolute_error(uv_to_xyz[:,:2], xyz_mm[:,:2], multioutput='raw_values')**2))
-        out_plane = np.mean(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        out_plane = np.mean(np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2])) # Avg differences on z
         return in_plane, out_plane
