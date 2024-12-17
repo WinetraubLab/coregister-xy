@@ -43,6 +43,35 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
 
+    def test_uv_check(self):
+        # Construct a case with random u,v,h vectors (angle is 68 degrees)
+        u = [2,1,0]
+        v = [0,3,2]
+        h = [10,15,12]
+        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        
+        for idx, uv in enumerate(self.template_center_positions_uv_pix):
+            a = fp.get_xyz_from_uv(uv)
+            self.assertAlmostEqual(a[0], xyz[idx][0])
+            self.assertAlmostEqual(a[1], xyz[idx][1])
+            with self.assertRaises(ValueError):
+                b = fp.get_uv_from_xyz(a) # Should fail the 89 degree check
+
+        # Case that should pass (89.4 degrees)
+        u = [1,0.001,0]
+        v = [0,3,0]
+        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        
+        for idx, uv in enumerate(self.template_center_positions_uv_pix):
+            a = fp.get_xyz_from_uv(uv)
+            self.assertAlmostEqual(a[0], xyz[idx][0])
+            self.assertAlmostEqual(a[1], xyz[idx][1])
+            b = fp.get_uv_from_xyz(a) 
+            self.assertAlmostEqual(b[0],self.template_center_positions_uv_pix[idx][0],2)
+            self.assertAlmostEqual(b[1],self.template_center_positions_uv_pix[idx][1],2)
+
     def test_distance_metrics(self):
         fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))

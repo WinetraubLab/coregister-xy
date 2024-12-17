@@ -177,7 +177,16 @@ class FitPlane:
         d = -np.dot(normal_vec, self.h)
         
         return a,b,c,d
-        
+
+    def check_uv_angle(self):
+        cos_theta = np.dot(self.u, self.v) / (self.u_norm_mm() * self.v_norm_mm())
+        # Angle (radians)
+        theta_rad = np.arccos(cos_theta)
+        if cos_theta > 0.018: # equal to one degree
+            raise ValueError(
+                "Angle between U and V is less than 89 degrees (%.2f)" % np.degrees(theta_rad)
+            )
+   
     def get_xyz_from_uv(self, point_pix):
         """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
         u_pix = point_pix[0]
@@ -186,7 +195,8 @@ class FitPlane:
     
     def get_uv_from_xyz(self, point_mm):
         """ Get the u,v coordinates on an image from a point in space, if point is outside the plane, return the u,v of the closest point. point_mm is a 3D numpy array or array """
-	
+        # Only works if angle condition satisfied
+        self.check_uv_angle()
         point_mm = np.array(point_mm)        
         
         u_hat = self.u_direction()
@@ -198,7 +208,7 @@ class FitPlane:
         v_pix = np.dot(point_mm-self.h,v_hat)/v_norm
         
         return np.array([u_pix, v_pix])
-        
+    
     def distance_from_origin_mm(self):
         """ Compute a signed distance from origin """
         return np.dot(self.h, self.normal_direction())
