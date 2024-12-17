@@ -186,6 +186,10 @@ class FitPlane:
             raise ValueError(
                 "Angle between U and V is less than 89 degrees (%.2f)" % np.degrees(theta_rad)
             )
+        elif cos_theta < -0.0174: # equal to one degree
+            raise ValueError(
+                "Angle between U and V is greater than 91 degrees (%.2f)" % np.degrees(theta_rad)
+            )
    
     def get_xyz_from_uv(self, point_pix):
         """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """

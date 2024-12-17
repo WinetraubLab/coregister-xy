@@ -44,9 +44,23 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(h[i], fp.h[i])
 
     def test_uv_check(self):
-        # Construct a case with random u,v,h vectors (angle is 68 degrees)
-        u = [2,1,0]
-        v = [0,3,2]
+        # 88 degree angles
+        u = [1,0,0]
+        v = [np.cos(np.deg2rad(88)),np.sin(np.deg2rad(88)), 0]
+        h = [10,15,12]
+        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        
+        for idx, uv in enumerate(self.template_center_positions_uv_pix):
+            a = fp.get_xyz_from_uv(uv)
+            self.assertAlmostEqual(a[0], xyz[idx][0])
+            self.assertAlmostEqual(a[1], xyz[idx][1])
+            with self.assertRaises(ValueError):
+                b = fp.get_uv_from_xyz(a) # Should fail the 89 degree check
+
+        # 92 degree angles
+        u = [1,0,0]
+        v = [np.cos(np.deg2rad(91)),np.sin(np.deg2rad(91)), 0]
         h = [10,15,12]
         xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
         fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
