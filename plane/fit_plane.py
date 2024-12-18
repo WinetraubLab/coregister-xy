@@ -180,9 +180,9 @@ class FitPlane:
 
     def get_xyz_from_uv(self, point_pix):
         """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
-        u_pix = point_pix[0]
-        v_pix = point_pix[1]
-        return (self.u*u_pix + self.v*v_pix + self.h)
+        A = np.vstack([self.u, self.v, self.h]).T
+        point_mat = np.array([point_pix[0], point_pix[1], 1])
+        return np.dot(A, point_mat)
     
     def get_uv_from_xyz(self, point_mm):
         A = np.vstack([self.u, self.v, self.h]).T
