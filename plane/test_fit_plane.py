@@ -43,6 +43,36 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
 
+    def test_conversion_pixel_position_to_physical_and_back_non_orthogonal_uv(self):
+        # 60 degree angle
+        u = [1,0,0]
+        v = [np.cos(np.deg2rad(60)),np.sin(np.deg2rad(60)), 0]
+        h = [0,0,5]    
+        fp = FitPlane(u,v,h)
+
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
+
+        # 99 degree angle
+        v = [np.cos(np.deg2rad(99)),np.sin(np.deg2rad(99)), 0]
+        fp = FitPlane(u,v,h)
+
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
+
+        # 90 degree angle
+        v = [np.cos(np.deg2rad(90)),np.sin(np.deg2rad(90)), 0]
+        fp = FitPlane(u,v,h)
+
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
+
     def test_distance_metrics(self):
         fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))

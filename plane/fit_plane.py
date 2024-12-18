@@ -132,9 +132,9 @@ class FitPlane:
         data = json.loads(json_str)
         # Create a new FitPlane object using the parsed data
         return cls(
-            u=data['u'],
-            v=data['v'],
-            h=data['h'],
+            data['u'],
+            data['v'],
+            data['h'],
         )
         
     def to_json(self):
@@ -177,28 +177,19 @@ class FitPlane:
         d = -np.dot(normal_vec, self.h)
         
         return a,b,c,d
-        
+
     def get_xyz_from_uv(self, point_pix):
         """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
-        u_pix = point_pix[0]
-        v_pix = point_pix[1]
-        return (self.u*u_pix + self.v*v_pix + self.h)
+        A = np.vstack([self.u, self.v, self.h]).T
+        point_mat = np.array([point_pix[0], point_pix[1], 1])
+        return np.dot(A, point_mat)
     
     def get_uv_from_xyz(self, point_mm):
-        """ Get the u,v coordinates on an image from a point in space, if point is outside the plane, return the u,v of the closest point. point_mm is a 3D numpy array or array """
-	
-        point_mm = np.array(point_mm)        
-        
-        u_hat = self.u_direction()
-        u_norm = self.u_norm_mm()
-        u_pix = np.dot(point_mm-self.h,u_hat)/u_norm
-        
-        v_hat = self.v_direction()
-        v_norm = self.v_norm_mm()
-        v_pix = np.dot(point_mm-self.h,v_hat)/v_norm
-        
-        return np.array([u_pix, v_pix])
-        
+        A = np.vstack([self.u, self.v, self.h]).T
+        point_mat = np.array([point_mm[0], point_mm[1], point_mm[2]])
+        uv = np.dot(np.linalg.inv(A), point_mat)
+        return uv
+    
     def distance_from_origin_mm(self):
         """ Compute a signed distance from origin """
         return np.dot(self.h, self.normal_direction())
