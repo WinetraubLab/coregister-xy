@@ -43,13 +43,12 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
 
-    def test_xyz_to_uv_map(self):
+    def test_conversion_pixel_position_to_physical_and_back_non_orthogonal_uv(self):
         # 60 degree angle
         u = [1,0,0]
         v = [np.cos(np.deg2rad(60)),np.sin(np.deg2rad(60)), 0]
         h = [0,0,5]    
-        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
-        fp = FitPlane.from_json(j)
+        fp = FitPlane(u,v,h)
 
         a = fp.get_xyz_from_uv([1,2])
         b = fp.get_uv_from_xyz(a)
@@ -58,8 +57,7 @@ class TestFitPlane(unittest.TestCase):
 
         # 99 degree angle
         v = [np.cos(np.deg2rad(99)),np.sin(np.deg2rad(99)), 0]
-        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
-        fp = FitPlane.from_json(j)
+        fp = FitPlane(u,v,h)
 
         a = fp.get_xyz_from_uv([1,2])
         b = fp.get_uv_from_xyz(a)
@@ -68,8 +66,7 @@ class TestFitPlane(unittest.TestCase):
 
         # 90 degree angle
         v = [np.cos(np.deg2rad(90)),np.sin(np.deg2rad(90)), 0]
-        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
-        fp = FitPlane.from_json(j)
+        fp = FitPlane(u,v,h)
 
         a = fp.get_xyz_from_uv([1,2])
         b = fp.get_uv_from_xyz(a)
