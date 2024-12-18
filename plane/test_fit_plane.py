@@ -43,48 +43,38 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
 
-    def test_uv_check(self):
-        # 88 degree angles
+    def test_xyz_to_uv_map(self):
+        # 60 degree angle
         u = [1,0,0]
-        v = [np.cos(np.deg2rad(88)),np.sin(np.deg2rad(88)), 0]
-        h = [10,15,12]
-        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
-        
-        for idx, uv in enumerate(self.template_center_positions_uv_pix):
-            a = fp.get_xyz_from_uv(uv)
-            self.assertAlmostEqual(a[0], xyz[idx][0])
-            self.assertAlmostEqual(a[1], xyz[idx][1])
-            with self.assertRaises(ValueError):
-                b = fp.get_uv_from_xyz(a) # Should fail the 89 degree check
+        v = [np.cos(np.deg2rad(60)),np.sin(np.deg2rad(60)), 0]
+        h = [0,0,5]    
+        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
+        fp = FitPlane.from_json(j)
 
-        # 92 degree angles
-        u = [1,0,0]
-        v = [np.cos(np.deg2rad(91)),np.sin(np.deg2rad(91)), 0]
-        h = [10,15,12]
-        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
-        
-        for idx, uv in enumerate(self.template_center_positions_uv_pix):
-            a = fp.get_xyz_from_uv(uv)
-            self.assertAlmostEqual(a[0], xyz[idx][0])
-            self.assertAlmostEqual(a[1], xyz[idx][1])
-            with self.assertRaises(ValueError):
-                b = fp.get_uv_from_xyz(a) # Should fail the 89 degree check
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
 
-        # Case that should pass (89.4 degrees)
-        u = [1,0.001,0]
-        v = [0,3,0]
-        xyz = [np.array(u) * p[0] + np.array(v) * p[1] + np.array(h) for p in self.template_center_positions_uv_pix]
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
-        
-        for idx, uv in enumerate(self.template_center_positions_uv_pix):
-            a = fp.get_xyz_from_uv(uv)
-            self.assertAlmostEqual(a[0], xyz[idx][0])
-            self.assertAlmostEqual(a[1], xyz[idx][1])
-            b = fp.get_uv_from_xyz(a) 
-            self.assertAlmostEqual(b[0],self.template_center_positions_uv_pix[idx][0],2)
-            self.assertAlmostEqual(b[1],self.template_center_positions_uv_pix[idx][1],2)
+        # 99 degree angle
+        v = [np.cos(np.deg2rad(99)),np.sin(np.deg2rad(99)), 0]
+        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
+        fp = FitPlane.from_json(j)
+
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
+
+        # 90 degree angle
+        v = [np.cos(np.deg2rad(90)),np.sin(np.deg2rad(90)), 0]
+        j = '{{"u": {}, "v": {}, "h": {}}}'.format(u,v,h)
+        fp = FitPlane.from_json(j)
+
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
 
     def test_distance_metrics(self):
         fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
