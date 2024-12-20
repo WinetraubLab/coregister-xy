@@ -188,7 +188,7 @@ class FitPlane:
         A = np.vstack([self.u, self.v, self.h]).T
         point_mat = np.array([point_mm[0], point_mm[1], point_mm[2]])
         uv = np.dot(np.linalg.inv(A), point_mat)
-        return uv
+        return np.array([uv[0],uv[1]])
     
     def distance_from_origin_mm(self):
         """ Compute a signed distance from origin """
