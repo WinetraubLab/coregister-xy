@@ -157,6 +157,35 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(random_image[10,10,1],mapped_image[10,10,1])
         self.assertAlmostEqual(random_image[50,50,2],mapped_image[50,50,2])
 
+    def test_image_physical(self):
+        # Create dummy plane with a random image
+        uv = [[0,0],[100,0],[0,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        # xyz = [[0,-1,0],[2,1,0],[0,3,0]] # mm
+        fp1 = FitPlane.from_template_centers(uv,xyz)
+
+        # Slightly different plane shifted over by 10
+        uv = [[10,0],[110,0],[10,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        fp2 = FitPlane.from_template_centers(uv,xyz)
+
+        np.random.seed(42)
+        blank = np.zeros((300, 100, 3))
+        blank[50,50] = np.array([255,255,255])
+
+        fp1_image = fp1.image_to_physical(blank, [0,2], [0,2], 0.01)
+        fp2_image = fp2.image_to_physical(blank, [0,2], [0,2], 0.01)
+
+        # Find the position of the white pixel and make sure it is in the correct place
+
+        fp1_px = np.argwhere(np.all(fp1_image == np.array([255,255,255]), axis=-1)) # Should contain [50,50]
+        fp2_px = np.argwhere(np.all(fp2_image == np.array([255,255,255]), axis=-1)) # Should contain [50,40]
+
+        assert len(fp1_px) > 0
+        assert len(fp2_px) > 0 
+        self.assertAlmostEqual(fp1_px[0][0], fp2_px[0][0])
+        self.assertAlmostEqual(fp1_px[0][1], fp2_px[0][1]+10)
+
     def test_image_to_physical_translations(self):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
