@@ -217,7 +217,6 @@ class FitPlane:
         # Input checks
         x_range_mm = np.array(x_range_mm)
         y_range_mm = np.array(y_range_mm)
-        img_height, img_width = cv2_image.shape[:2]
 
         # Check that the normal direction is very close to z.
         n = self.normal_direction()
@@ -225,23 +224,13 @@ class FitPlane:
             raise NotImplementedError(f'Normal direction must be close to z. n is [{n[0]},{n[1]},{n[2]}]')
 
         # Define the edges of the transofmation
-        def source(x,y):
-            vec = self.get_uv_from_xyz([x, y, self.distance_from_origin_mm()])
-            return(vec[0], vec[1])
         def dest(x,y):
             return( (x-x_range_mm[0])/pixel_size_mm, (y-y_range_mm[0])/pixel_size_mm )
-        pt0_source = source(x_range_mm[0], y_range_mm[0])
-        pt1_source = source(x_range_mm[0], y_range_mm[1])
-        pt2_source = source(x_range_mm[1], y_range_mm[1])
-        pt0_dest = dest(x_range_mm[0], y_range_mm[0])
-        pt1_dest = dest(x_range_mm[0], y_range_mm[1])
-        pt2_dest = dest(x_range_mm[1], y_range_mm[1])
 
-        # Get the affine transformation matrix
-        M = cv2.getAffineTransform(
-            np.float32([pt0_source, pt1_source, pt2_source]),
-            np.float32([pt0_dest, pt1_dest, pt2_dest]),
-            )
+        # Get affine transformation matrix
+        uv = np.array([[0,0],[0,1000],[1000,0]])
+        xy = np.array([dest(self.get_xyz_from_uv(t)[0], self.get_xyz_from_uv(t)[1]) for t in uv])
+        M = cv2.getAffineTransform(np.array(uv).astype(np.float32), (xy).astype(np.float32))
 
         # Apply the affine transformation using warpAffine
         width, height = dest(x_range_mm[1], y_range_mm[1])
