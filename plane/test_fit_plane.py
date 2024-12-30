@@ -157,11 +157,10 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(random_image[10,10,1],mapped_image[10,10,1])
         self.assertAlmostEqual(random_image[50,50,2],mapped_image[50,50,2])
 
-    def test_image_physical(self):
+    def test_image_to_physical_translations_uv(self):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
-        # xyz = [[0,-1,0],[2,1,0],[0,3,0]] # mm
         fp1 = FitPlane.from_template_centers(uv,xyz)
 
         # Slightly different plane shifted over by 10
@@ -186,7 +185,7 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(fp1_px[0][0], fp2_px[0][0])
         self.assertAlmostEqual(fp1_px[0][1], fp2_px[0][1]+10)
 
-    def test_image_to_physical_translations(self):
+    def test_image_to_physical_translations_xy(self):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
