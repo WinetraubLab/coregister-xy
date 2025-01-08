@@ -167,7 +167,9 @@ class FitPlane:
         
     def normal_direction(self):
         """ Return a unit vector in the direction of the normal """
-        return np.cross(self.u_direction(), self.v_direction())
+        n = np.cross(self.u_direction(), self.v_direction())
+        n = n / np.linalg.norm(n)
+        return n
         
     def get_plane_equation(self):
         """ Convert u,v,h to a plane equation ax+by+cz-d=0.
