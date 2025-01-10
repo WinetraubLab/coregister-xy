@@ -26,6 +26,9 @@ oct_scan_mm = [-0.25 0.25]; % OCT x-y scan size
 % Simulation output
 output_tiff_file = 'out_xy.tiff';
 
+% If set to true, will ignore depth and generate just one plane
+flatten_tiff = false;
+
 %% Configurable Parameters
 % Gausian base waist
 w0_mm = 1/pi*lambda_mm*n/NA;
@@ -58,8 +61,12 @@ for z=fliplr(z_grid_mm) % Start at the bottom for ImageJ orientation
 
 
         % Gausian waist at the depth we are
-        wz_mm = w0_mm*sqrt(1+( ...
-            (z_start_end_mm(lineI)-z) /zR_mm)^2);
+        if flatten_tiff
+            wz_mm = w0_mm; % Ignore z
+        else
+            wz_mm = w0_mm*sqrt(1+( ...
+                (z_start_end_mm(lineI)-z) /zR_mm)^2);
+        end
 
         % Add the line
         c=createPhotobleachArea(yI&xI,photobleach_intensity,wz_mm/pixel_size_mm);
@@ -77,10 +84,17 @@ for z=fliplr(z_grid_mm) % Start at the bottom for ImageJ orientation
         c_all = addOCTScanRectangle(c_all, xx_mm, yy_mm, oct_scan_mm,pixel_size_mm);
     end
 
-    % Write z depth
-    c_all = rgb2gray(insertText(c_all,[size(c_all,2)/2 0],...
-        sprintf('z=%.1fum',z*1e3),...
-        'FontSize',20,'AnchorPoint','CenterTop'));
+    if flatten_tiff
+        % Write z depth
+        c_all = rgb2gray(insertText(c_all,[size(c_all,2)/2 0],...
+            sprintf('flatten'),...
+            'FontSize',20,'AnchorPoint','CenterTop'));
+    else
+        % Write z depth
+        c_all = rgb2gray(insertText(c_all,[size(c_all,2)/2 0],...
+            sprintf('z=%.1fum',z*1e3),...
+            'FontSize',20,'AnchorPoint','CenterTop'));
+    end
 
     % Save to disk
     if isFirstLoop
