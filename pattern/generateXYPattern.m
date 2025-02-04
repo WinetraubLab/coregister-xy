@@ -1,18 +1,85 @@
 function [...
     x_start_mm, x_end_mm, ...
     y_start_mm, y_end_mm, ...
-    z_mm] = generateXYPattern(verbose)
+    z_mm] = generateXYPattern(verbose, patternCenter_mm)
 % This function generates the instructions (lines) for XY lines
 % The lines are from (x_start_mm(i), y_start_mm(i)) (to x_end_mm(i), y_end_mm(i)) 
 % at depth z
-% INPUT: verbose (default: false). If set to true, function will output
-% line information as well as image 
+% INPUT: 
+%   verbose (default: false). If set to true, function will output
+%   line information as well as image.
+%   patternCenter_mm - list of pattern centers [x0,y0,z0; x1,y1,z1; ...].
+%       default: [0,0,0]
 
 %% Inputs check
 if ~exist('verbose','var')
     verbose = false;
 end
 
+if ~exist(patternCenter_mm,'var')
+    patternCenter_mm = [0,0,0];
+end
+
+%% Create pattern
+x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
+for i=1:size(patternCenter_mm,1)
+    [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = ...
+        CreateFOVPattern(patternCenter_mm(i,1), ... x
+        CreateFOVPattern(patternCenter_mm(i,2)  ... y
+        );
+    x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
+end
+
+%% Sort
+[~,i] = sort(z_mm);
+x_start_mm = x_start_mm(i);
+x_end_mm = x_end_mm(i);
+y_start_mm = y_start_mm(i);
+y_end_mm = y_end_mm(i);
+z_mm = z_mm(i);
+
+%% Plot
+if verbose
+    % Organize colors acordign to height
+    uz_mm = unique(z_mm);
+    colors = num2cell(jet(length(uz_mm)),2);
+
+    % Plot all
+    figure(22)
+    for subplotI = 1:2
+        subplot(1,2,subplotI);
+        for plotI = 1:length(x_start_mm)
+            c = colors{uz_mm==z_mm(plotI)};
+            lw = 0.5;
+            plot([x_start_mm(plotI) x_end_mm(plotI)],[y_start_mm(plotI) y_end_mm(plotI)],'Color',c,'LineWidth',lw);
+            if (plotI == 1)
+               hold on;
+            end
+        end
+        lens_fov = 0.5; %mm, lens FOV
+        plot(lens_fov/2*[-1 1 1 -1 -1],lens_fov/2*[-1 -1 1 1 -1],'--k')
+        hold off;
+        axis equal;
+        axis ij;
+        grid on;
+        xlabel('x[mm]');
+        ylabel('y[mm]');
+
+        if subplotI == 1
+            xlim([min([x_start_mm x_end_mm])-100e-3, max([x_start_mm x_end_mm])+100e-3])
+            ylim([min([y_start_mm y_end_mm])-100e-3, max([y_start_mm y_end_mm])+100e-3])
+            title(sprintf('Overview\n(Blue z=%.0f\\mum, Red z=%.0f\\mum)',min(z_mm)*1e3,max(z_mm)*1e3));
+        else
+            xlim(mean([x_start_mm1 x_end_mm1])+2*std([x_start_mm1 x_end_mm1])*[-1 1])
+            ylim(mean([y_start_mm1 y_end_mm1])+2*std([y_start_mm1 y_end_mm1])*[-1 1])
+            title('Pattern Zoom In');
+        end
+    end
+    pause(0.1);
+end
+end
+
+function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = CreateFOVPattern(centerX, centerY)
 %% Bulk of the pattern
 % Pattern to photobleach. System will photobleach n lines from 
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
@@ -64,53 +131,6 @@ else
 end
 z_mm = [z_mm ones(1,nGridLines)*L_depth_mm];
 
-%% Sort
-[~,i] = sort(z_mm);
-x_start_mm = x_start_mm(i);
-x_end_mm = x_end_mm(i);
-y_start_mm = y_start_mm(i);
-y_end_mm = y_end_mm(i);
-z_mm = z_mm(i);
-
-%% Plot
-if verbose
-    % Organize colors acordign to height
-    uz_mm = unique(z_mm);
-    colors = num2cell(jet(length(uz_mm)),2);
-
-    % Plot all
-    figure(22)
-    for subplotI = 1:2
-        subplot(1,2,subplotI);
-        for plotI = 1:length(x_start_mm)
-            c = colors{uz_mm==z_mm(plotI)};
-            lw = 0.5;
-            plot([x_start_mm(plotI) x_end_mm(plotI)],[y_start_mm(plotI) y_end_mm(plotI)],'Color',c,'LineWidth',lw);
-            if (plotI == 1)
-               hold on;
-            end
-        end
-        lens_fov = 0.5; %mm, lens FOV
-        plot(lens_fov/2*[-1 1 1 -1 -1],lens_fov/2*[-1 -1 1 1 -1],'--k')
-        hold off;
-        axis equal;
-        axis ij;
-        grid on;
-        xlabel('x[mm]');
-        ylabel('y[mm]');
-
-        if subplotI == 1
-            xlim([min([x_start_mm x_end_mm])-100e-3, max([x_start_mm x_end_mm])+100e-3])
-            ylim([min([y_start_mm y_end_mm])-100e-3, max([y_start_mm y_end_mm])+100e-3])
-            title(sprintf('Overview\n(Blue z=%.0f\\mum, Red z=%.0f\\mum)',min(z_mm)*1e3,max(z_mm)*1e3));
-        else
-            xlim(mean([x_start_mm1 x_end_mm1])+2*std([x_start_mm1 x_end_mm1])*[-1 1])
-            ylim(mean([y_start_mm1 y_end_mm1])+2*std([y_start_mm1 y_end_mm1])*[-1 1])
-            title('Pattern Zoom In');
-        end
-    end
-    pause(0.1);
-end
 end
 
 %% Small Pattern
