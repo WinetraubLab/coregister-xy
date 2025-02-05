@@ -10,6 +10,13 @@
 % physcaily running the test.
 skipHardware = false;
 
+% Input coordinates in mm for each pattern center
+patternCenter_mm = [0,0,0;
+                    0,1,0;
+                    1,0,0;
+                    -1,0,0;
+                    0,-1,0];
+
 % OCT probe
 octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
 
@@ -17,7 +24,7 @@ octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
 % (x_start(i), y_start(i)) to (x_end(i), y_end(i)) at height z
 % Load the pattern
 [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = ...
-    generateXYPattern(true);
+    generateXYPattern(true, patternCenter_mm);
 
 % Photobleach configurations
 nPasses = 2; % For gel use 1 pass. For brain tissue use 2. Keep as low as possible. If galvo gets stuck, increase number. 
