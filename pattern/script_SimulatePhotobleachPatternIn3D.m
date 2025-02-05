@@ -1,16 +1,23 @@
 % This script will generate a 3D volume of how the XY pattern should appear
 % in the tissue
 
+% Input coordinates in mm for each pattern center
+patternCenter_mm = [0,0,0;
+                    0,1,0;
+                    1,0,0;
+                    -1,0,0;
+                    0,-1,0];
+                    
 % Load the pattern
 [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_start_end_mm] = ...
-    generateXYPattern(false);
+    generateXYPattern(false, patternCenter_mm);
 
 %% Script Inputs
 
 % Define the bounding box to generate 3D simulation for
-x_grid_mm = -0.40:2e-3:0.40;
-y_grid_mm = -0.40:2e-3:0.40;
-z_grid_mm =  0.00:2e-3:0.40;
+x_grid_mm = -0.40:1e-3:0.40;
+y_grid_mm = -0.40:1e-3:0.40;
+z_grid_mm =  0.00:1e-3:0.40;
 
 % Physical parameters 
 NA = 0.35; % Match NA to observed photobleach pattern. For 40x use 0.35 (though lens NA is 0.8)
@@ -28,6 +35,10 @@ output_tiff_file = 'out_xy.tiff';
 
 % If set to true, will ignore depth and generate just one plane
 flatten_tiff = false;
+
+if flatten_tiff
+    z_grid_mm = 0;
+end
 
 %% Configurable Parameters
 % Gausian base waist
