@@ -16,7 +16,7 @@ if ~exist('verbose','var')
     verbose = false;
 end
 
-if ~exist(patternCenter_mm,'var')
+if ~exist('patternCenter_mm','var')
     patternCenter_mm = [0,0,0];
 end
 
@@ -24,8 +24,9 @@ end
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
 for i=1:size(patternCenter_mm,1)
     [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = ...
-        CreateFOVPattern(patternCenter_mm(i,1), ... x
-        CreateFOVPattern(patternCenter_mm(i,2)  ... y
+        CreateFOVPattern(
+            patternCenter_mm(i,1), ... x
+            patternCenter_mm(i,2)  ... y
         );
     x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 end
@@ -85,19 +86,19 @@ function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = CreateFOVPattern(c
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
 
 % Right
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(185e-3, 0, false, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(185e-3, 0, false, false, centerX, centerY);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Left
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-185e-3, 0, false, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(-185e-3, 0, false, false, centerX, centerY);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Down
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 185e-3, true, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, 185e-3, true, false, centerX, centerY);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 % Top
-[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -185e-3, true, false);
+[x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = Create1BlockPattern(0, -185e-3, true, false, centerX, centerY);
 x_start_mm = [x_start_mm x_start_mm1]; x_end_mm=[x_end_mm x_end_mm1]; y_start_mm=[y_start_mm y_start_mm1]; y_end_mm=[y_end_mm y_end_mm1]; z_mm=[z_mm z_mm1];
 
 %% Alignment markers (L shape)
@@ -105,10 +106,10 @@ nGridLines = 0;
 
 % Small L
 if true
-    x_start_mm = [x_start_mm [-0.30  -0.30  -0.30   0.10  0.22]];
-    x_end_mm =   [x_end_mm   [-0.30  -0.30  -0.20   0.17  0.30]];
-    y_start_mm = [y_start_mm [-0.20   0.10   0.30   0.30  0.30]];
-    y_end_mm =   [y_end_mm   [-0.30   0.30   0.30   0.30  0.30]];
+    x_start_mm = [x_start_mm ([-0.30 -0.30 -0.30 0.10 0.22] + centerX)];
+    x_end_mm =   [x_end_mm   ([-0.30 -0.30 -0.20 0.17 0.30] + centerX)];
+    y_start_mm = [y_start_mm ([-0.20  0.10  0.30 0.30 0.30] + centerY)];
+    y_end_mm =   [y_end_mm   ([-0.30  0.30  0.30 0.30 0.30] + centerY)];
     nGridLines = nGridLines + 5;
 end 
 
@@ -135,7 +136,7 @@ end
 
 %% Small Pattern
 function [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_mm] = Create1BlockPattern( ...
-    offset_x_mm, offset_y_mm, is_flip_xy, is_flip_z)
+    offset_x_mm, offset_y_mm, is_flip_xy, is_flip_z, centerX, centerY)
 scale1 = 150e-3; %mm
 scale2 = 180e-3;
 xp_start_mm = [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1,  2]/3*scale1 + 10e-3 -scale1/2;
@@ -149,14 +150,14 @@ if is_flip_z
 end
 
 if ~is_flip_xy
-    x_start_mm = xp_start_mm + offset_x_mm;
-    x_end_mm =   xp_end_mm   + offset_x_mm;
-    y_start_mm = yp_start_mm + offset_y_mm;
-    y_end_mm =   yp_end_mm   + offset_y_mm;
+    x_start_mm = xp_start_mm + offset_x_mm + centerX;
+    x_end_mm =   xp_end_mm   + offset_x_mm + centerX;
+    y_start_mm = yp_start_mm + offset_y_mm + centerY;
+    y_end_mm =   yp_end_mm   + offset_y_mm + centerY;
 else
-    x_start_mm = yp_start_mm + offset_x_mm;
-    x_end_mm =   yp_end_mm   + offset_x_mm;
-    y_start_mm = xp_start_mm + offset_y_mm;
-    y_end_mm =   xp_end_mm   + offset_y_mm;
+    x_start_mm = yp_start_mm + offset_x_mm + centerX;
+    x_end_mm =   yp_end_mm   + offset_x_mm + centerX;
+    y_start_mm = xp_start_mm + offset_y_mm + centerY;
+    y_end_mm =   xp_end_mm   + offset_y_mm + centerY;
 end 
 end
