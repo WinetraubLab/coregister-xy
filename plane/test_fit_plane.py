@@ -9,15 +9,15 @@ import cv2
 class TestFitPlane(unittest.TestCase):
 
     def setUp(self):
-        self.template_center_positions_uv_pix = [[0,1],[1,0],[1,1]]
-        self.template_center_positions_xyz_mm = [[0,1,0],[1,0,0],[1,1,0]]
+        self.template_positions_uv_pix = [[0,1],[1,0],[1,1]]
+        self.template_positions_xyz_mm = [[0,1,0],[1,0,0],[1,1,0]]
 
     def test_main_function_runs(self):
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
-        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
+        FitPlane.from_template_centers(self.template_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
+        FitPlane.from_template_centers(self.template_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=True)
 
     def test_fit_mapping(self):
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
         self.assertAlmostEqual(fp.u[0], 1)
         self.assertAlmostEqual(fp.u[1], 0)
         self.assertAlmostEqual(fp.u[2], 0)
@@ -33,11 +33,11 @@ class TestFitPlane(unittest.TestCase):
         v = [0,3,2]
         h = [10,15,12]
         xyz = []
-        for p in self.template_center_positions_uv_pix:
+        for p in self.template_positions_uv_pix:
             p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
             xyz.append(p2)
         
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_positions_uv_pix, xyz, print_inputs=False)
         for i in range(0,3):
                 self.assertAlmostEqual(u[i], fp.u[i])
                 self.assertAlmostEqual(v[i], fp.v[i])
@@ -74,8 +74,8 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(2, b[1])
 
     def test_distance_metrics(self):
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
-        i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))
+        fp = FitPlane.from_template_centers(self.template_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
+        i,o = fp.get_template_positions_distance_metrics(np.array(self.template_positions_uv_pix), np.array(self.template_positions_xyz_mm))
         self.assertAlmostEqual(i,0)
         self.assertAlmostEqual(o,0)
 
@@ -85,13 +85,13 @@ class TestFitPlane(unittest.TestCase):
         h = [0,0,0]
         xyz = []
         xyz_2 = []
-        for p in self.template_center_positions_uv_pix:
+        for p in self.template_positions_uv_pix:
             p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
             xyz.append(p2)
             # manually perturb original points
             xyz_2.append([p2[0]-1, p2[1], p2[2]-5])
-        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
-        i,o = fp.get_template_center_positions_distance_metrics(self.template_center_positions_uv_pix, np.array(xyz_2))
+        fp = FitPlane.from_template_centers(self.template_positions_uv_pix, xyz, print_inputs=False)
+        i,o = fp.get_template_positions_distance_metrics(self.template_positions_uv_pix, np.array(xyz_2))
         self.assertAlmostEqual(i,1)
         self.assertAlmostEqual(o,5)
 
