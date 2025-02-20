@@ -3,6 +3,7 @@ import numpy as np
 from scipy.optimize import minimize
 from sklearn.metrics import mean_absolute_error
 import cv2
+from scipy.interpolate import Rbf, griddata
 
 class FitPlaneElastic:
     
@@ -10,7 +11,7 @@ class FitPlaneElastic:
     def __init__(self, tps_weights=None, control_points=None):
         self.tps_weights = tps_weights
         self.control_points = control_points
-        if self.tps_weights and self.control_points:
+        if not (self.tps_weights is None or self.control_points is None):
             self.tps_weights = np.array(self.tps_weights)
             self.control_points = np.array(self.control_points)
     
@@ -18,7 +19,7 @@ class FitPlaneElastic:
     def from_points(
         cls, template_positions_uv_pix, template_positions_xyz_mm, print_inputs = False):
         """
-        This function initializes a FitPlaneElastic by a list of points.
+        This function initializes a FitPlaneElastic by applying Thin Plate Spline on a list of points.
 
         INPUTS:
             template_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
@@ -46,3 +47,19 @@ class FitPlaneElastic:
                    json.dumps(template_positions_xyz_mm.tolist()))   
             txt += ')'
             print(txt)
+
+        # Compute Thin Plate Spline transformation
+        x = template_positions_xyz_mm[:, 0]
+        y = template_positions_xyz_mm[:, 1]
+        z = template_positions_xyz_mm[:, 2]
+
+        # TPS interpolators for each x, y, z 
+        tps_x = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], x, function='thin_plate')
+        tps_y = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], y, function='thin_plate')
+        tps_z = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], z, function='thin_plate')
+
+        # Store weights and control points
+        tps_weights = np.vstack([tps_x.nodes, tps_y.nodes, tps_z.nodes])
+        control_points = template_positions_uv_pix
+
+        return cls(tps_weights, control_points)
