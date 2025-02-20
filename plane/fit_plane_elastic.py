@@ -24,7 +24,7 @@ class FitPlaneElastic:
             template_positions_uv_pix: For each photobleach barcode, find the center position in pixels. This is an
                 array of these center points [[x1, y1], [x2, y2],..., [xn, yn]] with shape (n,2)
             template_positions_xyz_mm: An array [[x1, y1, z1],..., [xn, yn, zn]] of shape (n,3) containing points defining the 
-                position (in um) of the locations that each of the points in template_center_positions_uv_pix should map to. 
+                position (in um) of the locations that each of the points in template_positions_uv_pix should map to. 
                 These points can be obtained from the photobleaching script.
             print_inputs: prints to screen the inputs of the function for debug purposes.
         """
@@ -33,11 +33,11 @@ class FitPlaneElastic:
         template_positions_xyz_mm = np.array(template_positions_xyz_mm)
         if (template_positions_uv_pix.shape[0] != template_positions_xyz_mm.shape[0]):
             raise ValueError("Number of points should be the same between " + 
-                "template_center_positions_uv_pix, template_center_positions_xyz_mm")
+                "template_positions_uv_pix, template_positions_xyz_mm")
         if template_positions_uv_pix.shape[1] != 2:
-            raise ValueError("Number of elements in template_center_positions_uv_pix should be two")
+            raise ValueError("Number of elements in template_positions_uv_pix should be two")
         if template_positions_xyz_mm.shape[1] != 3:
-            raise ValueError("Number of elements in template_center_positions_xyz_mm should be three")
+            raise ValueError("Number of elements in template_positions_xyz_mm should be three")
         
         # Print inputs
         if print_inputs:
