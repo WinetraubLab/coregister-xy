@@ -64,3 +64,9 @@ class FitPlaneElastic:
 
         return cls(tps_interpolator, control_points)
     
+    def get_xyz_from_uv(self, uv_pix):
+        """ Map a 2D point (u,v) to 3D (x,y,z) space using TPS interpolation. """
+        uv_pix = np.array(uv_pix)
+        xyz = self.tps_interpolator(uv_pix)  # Add batch dimension
+        return xyz
+  
