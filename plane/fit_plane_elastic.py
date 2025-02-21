@@ -8,11 +8,15 @@ from scipy.interpolate import Rbf, griddata
 class FitPlaneElastic:
     
     """ Begin constractor methods """
-    def __init__(self, tps_weights=None, control_points=None):
-        self.tps_weights = tps_weights
+    def __init__(self, tps_x=None, tps_y=None, tps_z=None, control_points=None):
+        self.tps_x = tps_x
+        self.tps_y = tps_y
+        self.tps_z = tps_z
         self.control_points = control_points
-        if not (self.tps_weights is None or self.control_points is None):
-            self.tps_weights = np.array(self.tps_weights)
+        if not (self.tps_x is None or self.tps_y is None or self.tps_z is None or self.control_points is None):
+            self.tps_x = np.array(tps_x)
+            self.tps_y = np.array(tps_y)
+            self.tps_z = np.array(tps_z)
             self.control_points = np.array(self.control_points)
     
     @classmethod
@@ -57,9 +61,6 @@ class FitPlaneElastic:
         tps_x = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], x, function='thin_plate')
         tps_y = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], y, function='thin_plate')
         tps_z = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], z, function='thin_plate')
-
-        # Store weights and control points
-        tps_weights = np.vstack([tps_x.nodes, tps_y.nodes, tps_z.nodes])
         control_points = template_positions_uv_pix
 
-        return cls(tps_weights, control_points)
+        return cls(tps_x.nodes, tps_y.nodes, tps_z.nodes, control_points)
