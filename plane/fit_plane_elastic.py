@@ -70,3 +70,52 @@ class FitPlaneElastic:
         xyz = self.tps_interpolator(uv_pix)  # Add batch dimension
         return xyz
   
+    def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
+        """ Project a 2D image to 3D physical space within range x_range_mm, y_range_mm using TPS interpolation."""
+        # Input checks
+        x_range_mm = np.array(x_range_mm)
+        y_range_mm = np.array(y_range_mm)
+
+        x_range_px = x_range_mm / pixel_size_mm
+        y_range_px = y_range_mm / pixel_size_mm
+
+        # Define the destination grid 
+        x_px = np.linspace(x_range_px[0], x_range_px[1], int(x_range_px[1]-x_range_px[0])+1)
+        y_px = np.linspace(y_range_px[0], y_range_px[1], int((y_range_px[1] - y_range_px[0]))+1)
+        xx, yy = np.meshgrid(x_px, y_px)
+
+        # Map uv to xyz in mm
+        uv_points = np.vstack([xx.ravel(), yy.ravel()]).T
+        xyz_points = self.tps_interpolator(uv_points)
+        mapped_u = xyz_points[:, 0].reshape(xx.shape)
+        mapped_v = xyz_points[:, 1].reshape(xx.shape)
+
+        mapped_u = (mapped_u) / pixel_size_mm
+        mapped_v = (mapped_v ) / pixel_size_mm
+
+        # Handle RGB images
+        if len(cv2_image.shape) == 3:
+            # Apply map_coordinates to each channel separately
+            warped_channels = [
+                map_coordinates(
+                    cv2_image[:, :, channel],  # Extract one channel
+                    [mapped_v, mapped_u],  # Use the same coordinates for all channels
+                    order=1,  
+                    mode='constant', 
+                    cval=0.0 
+                )
+                for channel in range(cv2_image.shape[2])  # Loop over channels
+            ]
+            # Stack the warped channels back into a 3D image
+            transformed_image = np.stack(warped_channels, axis=-1)
+        else: # Grayscale
+            transformed_image = map_coordinates(
+                cv2_image,
+                [mapped_v, mapped_u],  
+                order=1, 
+                mode='constant',  
+                cval=0.0 
+            )
+
+        return transformed_image    
+    
