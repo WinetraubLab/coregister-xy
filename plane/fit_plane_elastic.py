@@ -79,19 +79,20 @@ class FitPlaneElastic:
         x_range_px = x_range_mm / pixel_size_mm
         y_range_px = y_range_mm / pixel_size_mm
 
-        # Define the destination grid 
-        x_px = np.linspace(x_range_px[0], x_range_px[1], int(x_range_px[1]-x_range_px[0])+1)
-        y_px = np.linspace(y_range_px[0], y_range_px[1], int((y_range_px[1] - y_range_px[0]))+1)
+        # Define the destination grid in px
+        x_px = np.linspace(x_range_px[0], x_range_px[1]-1, int(x_range_px[1] - x_range_px[0]))
+        y_px = np.linspace(y_range_px[0], y_range_px[1]-1, int((y_range_px[1] - y_range_px[0])))
         xx, yy = np.meshgrid(x_px, y_px)
 
-        # Map uv to xyz in mm
+        # Map uv to xyz
         uv_points = np.vstack([xx.ravel(), yy.ravel()]).T
         xyz_points = self.tps_interpolator(uv_points)
+
         mapped_u = xyz_points[:, 0].reshape(xx.shape)
         mapped_v = xyz_points[:, 1].reshape(xx.shape)
 
-        mapped_u = (mapped_u) / pixel_size_mm
-        mapped_v = (mapped_v ) / pixel_size_mm
+        mapped_u = np.round(mapped_u / pixel_size_mm)
+        mapped_v = np.round(mapped_v / pixel_size_mm)
 
         # Handle RGB images
         if len(cv2_image.shape) == 3:
