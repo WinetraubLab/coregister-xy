@@ -14,6 +14,3 @@ class TestFitPlaneElastic(unittest.TestCase):
     def test_main_function_runs(self):
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
-
-    # def test_fit_mapping(self):
-    #     fp = FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)

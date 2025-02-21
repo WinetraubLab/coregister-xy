@@ -3,20 +3,16 @@ import numpy as np
 from scipy.optimize import minimize
 from sklearn.metrics import mean_absolute_error
 import cv2
-from scipy.interpolate import Rbf, griddata
+from scipy.interpolate import RBFInterpolator
+from scipy.ndimage import map_coordinates
 
 class FitPlaneElastic:
     
     """ Begin constractor methods """
-    def __init__(self, tps_x=None, tps_y=None, tps_z=None, control_points=None):
-        self.tps_x = tps_x
-        self.tps_y = tps_y
-        self.tps_z = tps_z
+    def __init__(self, tps_interpolator=None, control_points=None):
+        self.tps_interpolator = tps_interpolator
         self.control_points = control_points
-        if not (self.tps_x is None or self.tps_y is None or self.tps_z is None or self.control_points is None):
-            self.tps_x = np.array(tps_x)
-            self.tps_y = np.array(tps_y)
-            self.tps_z = np.array(tps_z)
+        if not (self.control_points is None):
             self.control_points = np.array(self.control_points)
     
     @classmethod
@@ -58,9 +54,13 @@ class FitPlaneElastic:
         z = template_positions_xyz_mm[:, 2]
 
         # TPS interpolators for each x, y, z 
-        tps_x = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], x, function='thin_plate')
-        tps_y = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], y, function='thin_plate')
-        tps_z = Rbf(template_positions_uv_pix[:, 0], template_positions_uv_pix[:, 1], z, function='thin_plate')
+        tps_interpolator = RBFInterpolator(
+            template_positions_uv_pix,  # 2D input points (u, v)
+            template_positions_xyz_mm,  # 3D target points (x, y, z)
+            kernel='thin_plate_spline',  # Use Thin Plate Spline kernel
+            neighbors=None  # Use all points for interpolation
+        )
         control_points = template_positions_uv_pix
 
-        return cls(tps_x.nodes, tps_y.nodes, tps_z.nodes, control_points)
+        return cls(tps_interpolator, control_points)
+    
