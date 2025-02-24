@@ -56,16 +56,16 @@ class FitPlaneElastic:
         forward_interpolator = RBFInterpolator(
             template_positions_uv_pix,  # 2D source points (uv)
             template_positions_xyz_mm,  # 3D target points (xyz)
-            kernel='thin_plate_spline',  # Use Thin Plate Spline kernel
+            kernel='thin_plate_spline',  
             neighbors=None  # Use all points for interpolation
         )
 
         # Create inverse interpolator (xyz -> uv)
         inverse_interpolator = RBFInterpolator(
             template_positions_xyz_mm[:, :2],  # Use only x and y for inverse (2D)
-            template_positions_uv_pix,  # 2D target points (uv)
-            kernel='thin_plate_spline',  # Use Thin Plate Spline kernel
-            neighbors=None  # Use all points for interpolation
+            template_positions_uv_pix,  
+            kernel='thin_plate_spline', 
+            neighbors=None
         )
 
         # Store control points
@@ -119,19 +119,14 @@ class FitPlaneElastic:
         # Input checks
         x_range_mm = np.array(x_range_mm)
         y_range_mm = np.array(y_range_mm)
-
         if x_range_mm[1] <= x_range_mm[0] or y_range_mm[1] <= y_range_mm[0]:
             raise ValueError("Invalid range: x_range_mm and y_range_mm must be increasing")
-
         if pixel_size_mm <= 0:
             raise ValueError("pixel_size_mm must be positive")
 
         # Calculate image dimensions
         width_px = int((x_range_mm[1] - x_range_mm[0]) / pixel_size_mm)
         height_px = int((y_range_mm[1] - y_range_mm[0]) / pixel_size_mm)
-
-        # Initialize black image
-        transformed_image = np.zeros_like(cv2_image)
 
         # Define the destination grid in physical coordinates
         x_physical = np.linspace(x_range_mm[0], (x_range_mm[1]/pixel_size_mm - 1) * pixel_size_mm, width_px)
@@ -151,9 +146,8 @@ class FitPlaneElastic:
         u_coords = uv_points[:, :, 0]
         v_coords = uv_points[:, :, 1]
 
-        # Handle RGB images
+        # Handle RGB images: Apply map_coordinates to each channel separately
         if len(cv2_image.shape) == 3:
-            # Apply map_coordinates to each channel separately
             warped_channels = [
                 map_coordinates(
                     cv2_image[:, :, channel],  # Extract one channel
