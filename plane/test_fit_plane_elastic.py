@@ -5,6 +5,9 @@ import unittest
 from plane.fit_plane_elastic import FitPlaneElastic
 import cv2
 
+from sklearn.metrics import mean_absolute_error
+from unittest.mock import patch
+
 class TestFitPlaneElastic(unittest.TestCase):
 
     def setUp(self):
@@ -129,3 +132,23 @@ class TestFitPlaneElastic(unittest.TestCase):
         # Find the position of the white pixel and make sure it is in the correct place
         npt.assert_array_almost_equal(fp1_image[50,50], [255,255,255])
         npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
+    
+    def test_distance_metrics(self):
+        fit_plane = FitPlaneElastic()
+
+        # Define test inputs
+        uv_pix = np.array([[0, 1], [1, 0]])  # Shape (2, 2)
+        xyz_mm = np.array([[0, 1, 0], [1, 0, 1]])  # Shape (2, 3)
+
+        # Mock the get_xyz_from_uv method to return known values
+        mock_uv_to_xyz = np.array([[0, 1, 0.1], [1, 0, 0.9]])  # Shape (2, 3)
+        with patch.object(fit_plane, 'get_xyz_from_uv', side_effect=mock_uv_to_xyz):
+            # Call the function
+            in_plane, out_plane = fit_plane.get_template_center_positions_distance_metrics(uv_pix, xyz_mm)
+
+            # Compute expected results
+            expected_in_plane = np.sqrt(np.sum(mean_absolute_error(mock_uv_to_xyz[:, :2], xyz_mm[:, :2], multioutput='raw_values')**2))
+            expected_out_plane = np.mean(np.abs(mock_uv_to_xyz[:, 2] - xyz_mm[:, 2]))
+
+            assert np.isclose(in_plane, expected_in_plane)
+            assert np.isclose(out_plane, expected_out_plane)

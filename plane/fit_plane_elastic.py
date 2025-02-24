@@ -2,6 +2,7 @@ import numpy as np
 import json
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
+from sklearn.metrics import mean_absolute_error
 
 class FitPlaneElastic:
     """
@@ -170,3 +171,14 @@ class FitPlaneElastic:
             )
 
         return transformed_image
+    
+    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm):
+        """ 
+        uv_pix: coordinates in pixels, array shape (2,n)
+        xyz_mm: coordinates in mm, array shape (3,n)
+        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
+        """
+        uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
+        in_plane = np.sqrt(np.sum(mean_absolute_error(uv_to_xyz[:,:2], xyz_mm[:,:2], multioutput='raw_values')**2))
+        out_plane = np.mean(np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2])) # Avg differences on z
+        return in_plane, out_plane
