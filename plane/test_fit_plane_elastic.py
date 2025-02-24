@@ -20,7 +20,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
 
-    def test_get_xyz_from_uv(self):
+    def test_get_xy_from_uv(self):
         fp = FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         xyz = fp.get_xyz_from_uv(self.template_center_positions_uv_pix)
         npt.assert_array_almost_equal(xyz, self.template_center_positions_xyz_mm)
@@ -103,3 +103,29 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertAlmostEqual(random_image[0,0,0],mapped_image[0,0,0])
         self.assertAlmostEqual(random_image[10,10,1],mapped_image[10,10,1])
         self.assertAlmostEqual(random_image[50,50,2],mapped_image[50,50,2])
+
+    def test_image_to_physical_translations_uv(self):
+        # Create dummy plane with a random image
+        uv = [[0,0],[100,0],[0,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        fp1 = FitPlaneElastic.from_points(uv,xyz)
+
+        # Slightly different plane shifted over by 10
+        uv = [[10,0],[110,0],[10,300]] # pix
+        xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
+        fp2 = FitPlaneElastic.from_points(uv,xyz)
+
+        np.random.seed(42)
+        blank = np.zeros((300, 100, 3))
+        blank[50,50] = np.array([255,255,255])
+        blank[20,70] = np.array([255,0,0])
+
+        fp1_image = fp1.image_to_physical(blank, [0,1], [0,1], 0.01)
+        fp2_image = fp2.image_to_physical(blank, [0,1], [0,1], 0.01)
+
+        # self.show_image(fp1_image)
+        # self.show_image(fp2_image)
+
+        # Find the position of the white pixel and make sure it is in the correct place
+        npt.assert_array_almost_equal(fp1_image[50,50], [255,255,255])
+        npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
