@@ -1,4 +1,4 @@
- ,X,Y,Slice,Z,fluorescent_image_path
+ ,X,Y,Slice,z_um,fluorescent_image_path
 1,1927,767,1,24,/coregister-xy/data/r2s1s4.tif
 2,1874,991,1,24,
 3,2098,847,1,24,
