@@ -242,13 +242,18 @@ class FitPlane:
             cv2_image, M, (width, height), borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0))
         return transformed_image
 
-    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm):
+    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
         """ 
         uv_pix: coordinates in pixels, array shape (2,n)
         xyz_mm: coordinates in mm, array shape (3,n)
-        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
+        mean: whether to average error across all input uv and xyz points.
+        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points. 
+        Returns scalar average if mean=True, array of distances per point otherwise.
         """
         uv_to_xyz = np.array([self.get_xyz_from_uv(p) for p in uv_pix])
-        in_plane = np.sqrt(np.sum(mean_absolute_error(uv_to_xyz[:,:2], xyz_mm[:,:2], multioutput='raw_values')**2))
-        out_plane = np.mean(np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2])) # Avg differences on z
-        return in_plane, out_plane
+        in_plane = np.sqrt(np.sum((uv_to_xyz[:, :2] - xyz_mm[:, :2])**2, axis=1))
+        out_plane = np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        if mean:
+            return np.mean(in_plane), np.mean(out_plane)
+        else:
+            return in_plane, out_plane
