@@ -73,3 +73,34 @@ class FitPlaneElastic:
         control_points_uv_pix = fluorescent_image_points_uv_pix
 
         return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, control_points_uv_pix)
+    
+    def get_xyz_from_uv(self, uv_pix):
+        """
+        Map 2D uv coordinates to 3D xyz coordinates using the forward interpolator.
+
+        Args:
+            uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
+
+        Returns:
+            3D xyz coordinates as a numpy array of shape (n, 3).
+        """
+        uv_pix = np.array(uv_pix)
+        if uv_pix.ndim == 1:
+            uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
+        return self.uv_to_xyz_interpolator(uv_pix)
+    
+    def get_uv_from_xyz(self, xyz_mm):
+        """
+        Map 3D xyz coordinates to 2D uv coordinates using the inverse interpolator.
+
+        Args:
+            xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
+
+        Returns:
+            2D uv coordinates as a numpy array of shape (n, 2).
+        """
+        xyz_mm = np.array(xyz_mm)
+        if xyz_mm.ndim == 1:
+            xyz_mm = xyz_mm[np.newaxis, :]  # Add batch dimension for single point
+        return self.xyz_to_uv_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
+    
