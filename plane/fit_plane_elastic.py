@@ -61,9 +61,12 @@ class FitPlaneElastic:
             neighbors=None  # Use all points for interpolation
         )
 
-        # Create inverse interpolator (xyz -> uv)
+        # Inverse mapping
+        # Prevent singularity
+        perturbed_template_positions_xyz_mm = template_positions_xyz_mm + np.random.normal(scale=1e-12, size=template_positions_xyz_mm.shape)
+            
         xyz_to_uv_interpolator = RBFInterpolator(
-            template_positions_xyz_mm[:, :2],  # Use only x and y for inverse (2D)
+            perturbed_template_positions_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
             fluorescent_image_points_uv_pix,  
             kernel='thin_plate_spline', 
             neighbors=None
@@ -171,4 +174,19 @@ class FitPlaneElastic:
             )
 
         return transformed_image
+    
+    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
+        """ 
+        uv_pix: coordinates in pixels, array shape (2,n)
+        xyz_mm: coordinates in mm, array shape (3,n)
+        mean: if True, average over all points. If False, return individual error per point
+        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
+        """
+        uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
+        in_plane = np.sqrt(np.sum((uv_to_xyz[:,:2] - xyz_mm[:,:2])**2, axis=1))
+        out_plane = np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        if mean:
+            return np.mean(in_plane), np.mean(out_plane)
+        else:
+            return in_plane, out_plane
     
