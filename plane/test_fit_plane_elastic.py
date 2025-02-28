@@ -133,22 +133,18 @@ class TestFitPlaneElastic(unittest.TestCase):
         npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
 
     def test_distance_metrics(self):
-        fit_plane = FitPlaneElastic()
+
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
 
         # Define test inputs
-        uv_pix = np.array([[0, 1], [1, 0]])  # Shape (2, 2)
-        xyz_mm = np.array([[0, 1, 0], [1, 0, 1]])  # Shape (2, 3)
+        uv_pix = np.array([[0, 1], [1, 0]])  # maps to [[0, 1, 0], [1, 0, 0]]
+        xyz_mm = np.array([[0, 2, 0.1], [1, 0, -0.1]])  
 
-        # Mock the get_xyz_from_uv method to return known values
-        mock_uv_to_xyz = np.array([[0, 1, 0.1], [1, 0, 0.9]])  # Shape (2, 3)
+        in_plane, out_plane = fp.get_template_center_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
 
-        with patch.object(fit_plane, 'get_xyz_from_uv', side_effect=mock_uv_to_xyz):
-            # Call the function
-            in_plane, out_plane = fit_plane.get_template_center_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
+        assert np.isclose(in_plane, 0.5)
+        assert np.isclose(out_plane, 0.1)
 
-            # Compute expected results
-            expected_in_plane = np.sqrt(np.sum(mock_uv_to_xyz[:, :2] - xyz_mm[:, :2]**2))
-            expected_out_plane = np.abs(mock_uv_to_xyz[:, 2] - xyz_mm[:, 2])
-
-            assert np.isclose(in_plane, np.mean(expected_in_plane))
-            assert np.isclose(out_plane, np.mean(expected_out_plane))
+        in_plane_indiv_pt, out_plane_indiv_pt = fp.get_template_center_positions_distance_metrics(uv_pix, xyz_mm, mean=False)
+        npt.assert_array_almost_equal(in_plane_indiv_pt, np.array([1,0]))
+        npt.assert_array_almost_equal(out_plane_indiv_pt, np.array([0.1, 0.1]))
