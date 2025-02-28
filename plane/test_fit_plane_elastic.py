@@ -14,3 +14,8 @@ class TestFitPlaneElastic(unittest.TestCase):
     def test_main_function_runs(self):
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
+    
+    def test_get_xyz_from_uv(self):
+        fp = FitPlaneElastic.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        xyz = fp.get_xyz_from_uv(self.template_center_positions_uv_pix)
+        npt.assert_array_almost_equal(xyz, self.template_center_positions_xyz_mm)
