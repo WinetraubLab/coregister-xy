@@ -61,9 +61,12 @@ class FitPlaneElastic:
             neighbors=None  # Use all points for interpolation
         )
 
-        # Create inverse interpolator (xyz -> uv)
+        # Inverse mapping
+        # Prevent singularity
+        perturbed_template_positions_xyz_mm = template_positions_xyz_mm + np.random.normal(scale=1e-12, size=template_positions_xyz_mm.shape)
+            
         xyz_to_uv_interpolator = RBFInterpolator(
-            template_positions_xyz_mm[:, :2],  # Use only x and y for inverse (2D)
+            perturbed_template_positions_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
             fluorescent_image_points_uv_pix,  
             kernel='thin_plate_spline', 
             neighbors=None
