@@ -104,3 +104,71 @@ class FitPlaneElastic:
             xyz_mm = xyz_mm[np.newaxis, :]  # Add batch dimension for single point
         return self.xyz_to_uv_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
     
+    def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
+        """
+        Project a 2D image to 3D physical space within range x_range_mm, y_range_mm using TPS interpolation.
+
+        Args:
+            cv2_image: The source image (2D or 3D RGB) to be transformed.
+            x_range_mm: The physical range in the x-direction (in mm).
+            y_range_mm: The physical range in the y-direction (in mm).
+            pixel_size_mm: The size of each pixel in mm.
+
+        Returns:
+            transformed_image: The transformed image in physical space.
+        """
+        # Input checks
+        x_range_mm = np.array(x_range_mm)
+        y_range_mm = np.array(y_range_mm)
+        if x_range_mm[1] <= x_range_mm[0] or y_range_mm[1] <= y_range_mm[0]:
+            raise ValueError("Invalid range: x_range_mm and y_range_mm must be increasing")
+        if pixel_size_mm <= 0:
+            raise ValueError("pixel_size_mm must be positive")
+
+        # Calculate image dimensions
+        width_px = int((x_range_mm[1] - x_range_mm[0]) / pixel_size_mm)
+        height_px = int((y_range_mm[1] - y_range_mm[0]) / pixel_size_mm)
+
+        # Define the destination grid in physical coordinates
+        x_mm = np.linspace(x_range_mm[0], (x_range_mm[1]/pixel_size_mm - 1) * pixel_size_mm, width_px)
+        y_mm = np.linspace(y_range_mm[0], (y_range_mm[1]/pixel_size_mm - 1) * pixel_size_mm, height_px)
+        xx_mm, yy_mm = np.meshgrid(x_mm, y_mm)
+
+        # Flatten the grid for TPS transformation
+        mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel()]).T
+
+        # Map physical coordinates to UV coordinates using the inverse interpolator
+        uv_points = self.get_uv_from_xyz(mm_points)
+
+        # Reshape UV coordinates to match the destination grid
+        uv_points = uv_points.reshape((height_px, width_px, 2))
+
+        # Extract U and V coordinates
+        u_coords = uv_points[:, :, 0]
+        v_coords = uv_points[:, :, 1]
+
+        # RGB images: Apply map_coordinates to each channel separately
+        if len(cv2_image.shape) == 3:
+            warped_channels = [
+                map_coordinates(
+                    cv2_image[:, :, channel],  # Extract one channel
+                    [v_coords, u_coords],     # Use UV coordinates
+                    order=1,                  # Bilinear interpolation
+                    mode='constant',          # Fill with zeros outside boundaries
+                    cval=0.0                 # Fill value
+                )
+                for channel in range(cv2_image.shape[2])  # Loop over channels
+            ]
+            # Stack the warped channels back into a 3D image
+            transformed_image = np.stack(warped_channels, axis=-1)
+        else:  # Grayscale
+            transformed_image = map_coordinates(
+                cv2_image,
+                [v_coords, u_coords],
+                order=1,
+                mode='constant',
+                cval=0.0
+            )
+
+        return transformed_image
+    
