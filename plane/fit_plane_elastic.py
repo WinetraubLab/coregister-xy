@@ -175,13 +175,18 @@ class FitPlaneElastic:
 
         return transformed_image
     
-    def get_template_center_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
+    def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
         """ 
         uv_pix: coordinates in pixels, array shape (2,n)
         xyz_mm: coordinates in mm, array shape (3,n)
         mean: if True, average over all points. If False, return individual error per point
         Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
         """
+        # Input check
+        uv_pix = np.array(uv_pix)
+        xyz_mm = np.array(xyz_mm)
+        assert uv_pix.shape[0] == xyz_mm.shape[0]
+
         uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
         in_plane = np.sqrt(np.sum((uv_to_xyz[:,:2] - xyz_mm[:,:2])**2, axis=1))
         out_plane = np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z

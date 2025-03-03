@@ -148,17 +148,22 @@ class TestFitPlaneElastic(unittest.TestCase):
         uv_pix = np.array([[0, 1], [1, 0]])  # maps to [[0, 1, 0], [1, 0, 0]]
         xyz_mm = np.array([[0, 2, 0.1], [1, 0, -0.1]])  
 
-        in_plane, out_plane = fp.get_template_center_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
+        in_plane, out_plane = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
 
         assert np.isclose(in_plane, 0.5)
         assert np.isclose(out_plane, 0.1)
 
-        in_plane_indiv_pt, out_plane_indiv_pt = fp.get_template_center_positions_distance_metrics(uv_pix, xyz_mm, mean=False)
+        in_plane_indiv_pt, out_plane_indiv_pt = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=False)
         npt.assert_array_almost_equal(in_plane_indiv_pt, np.array([1,0]))
         npt.assert_array_almost_equal(out_plane_indiv_pt, np.array([0.1, 0.1]))
 
-    def test_real_case(self):
+    def test_transform_grid(self):
+        # Create a test case warping points to a grid.
+        # Checks that the transform works on a large number of collinear/grid points
         uv_pix = [[96.0, 61.0], [236.833, 146.167], [379.5, 203.5], [511.5, 243.5], [628.833, 270.167], [731.5, 288.833], [822.167, 299.5], [898.167, 310.167], [962.167, 315.5], [1012.833, 319.5], [95.5, 239.5], [238.167, 283.5], [376.833, 312.833], [508.833, 331.5], [628.833, 343.5], [731.5, 352.833], [820.833, 359.5], [898.167, 364.833], [962.167, 368.833], [1014.167, 370.167], [95.5, 419.5], [236.833, 419.5], [376.833, 419.5], [511.5, 419.5], [627.5, 419.5], [732.833, 419.5], [822.167, 418.167], [895.5, 418.167], [962.167, 419.5], [1015.5, 419.5], [95.5, 598.167], [238.167, 556.833], [379.5, 526.167], [510.167, 507.5], [630.167, 494.167], [732.833, 484.833], [819.5, 479.5], [898.167, 474.167], [960.833, 470.167], [1014.167, 468.833]]
         xyz_mm = [[1.0, 1.0, 0.0], [2.0, 1.0, 0.0], [3.0, 1.0, 0.0], [4.0, 1.0, 0.0], [5.0, 1.0, 0.0], [6.0, 1.0, 0.0], [7.0, 1.0, 0.0], [8.0, 1.0, 0.0], [9.0, 1.0, 0.0], [10.0, 1.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [3.0, 2.0, 0.0], [4.0, 2.0, 0.0], [5.0, 2.0, 0.0], [6.0, 2.0, 0.0], [7.0, 2.0, 0.0], [8.0, 2.0, 0.0], [9.0, 2.0, 0.0], [10.0, 2.0, 0.0], [1.0, 3.0, 0.0], [2.0, 3.0, 0.0], [3.0, 3.0, 0.0], [4.0, 3.0, 0.0], [5.0, 3.0, 0.0], [6.0, 3.0, 0.0], [7.0, 3.0, 0.0], [8.0, 3.0, 0.0], [9.0, 3.0, 0.0], [10.0, 4.0, 0.0], [1.0, 4.0, 0.0], [2.0, 4.0, 0.0], [3.0, 4.0, 0.0], [4.0, 4.0, 0.0], [5.0, 4.0, 0.0], [6.0, 4.0, 0.0], [7.0, 4.0, 0.0], [8.0, 4.0, 0.0], [9.0, 4.0, 0.0], [10.0, 4.0, 0.0]]
 
         fp = FitPlaneElastic.from_points(uv_pix, xyz_mm)
+        xyz = fp.get_xyz_from_uv(uv_pix)
+        uv = fp.get_uv_from_xyz(xyz)
+        npt.assert_array_almost_equal(uv, uv_pix)
