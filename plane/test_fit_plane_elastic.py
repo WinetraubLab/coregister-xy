@@ -149,7 +149,7 @@ class TestFitPlaneElastic(unittest.TestCase):
 
     def test_distance_metrics(self):
 
-        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
 
         # Define test inputs
         uv_pix = np.array([[0, 1], [1, 0]])  # maps to [[0, 1, 0], [1, 0, 0]]
@@ -183,7 +183,7 @@ class TestFitPlaneElastic(unittest.TestCase):
             [1, 1, 2],   
             [0.5, 0.5, 1.5]  
         ])
-        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_center_positions_xyz_mm)
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm)
         npt.assert_almost_equal([0,0,1], fp.norm)
 
         # tilted example

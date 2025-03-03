@@ -10,20 +10,16 @@ class FitPlaneElastic:
     Supports forward mapping (uv -> xyz) and reverse mapping (xyz -> uv) using separate interpolators.
     """
     
-    def __init__(self, uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, control_points_uv_pix=None, normal=None):
+    def __init__(self, uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, normal=None):
         """
         Initialize the FitPlaneElastic class.
 
         Args:
             uv_to_xyz_interpolator: An RBFInterpolator object for forward mapping (uv -> xyz).
             xyz_to_uv_interpolator: An RBFInterpolator object for reverse mapping (xyz -> uv).
-            control_points_uv_pix: The control points used to initialize the interpolators.
         """
         self.uv_to_xyz_interpolator = uv_to_xyz_interpolator  # Forward interpolator (uv -> xyz)
         self.xyz_to_uv_interpolator = xyz_to_uv_interpolator  # Inverse interpolator (xyz -> uv)
-        self.control_points_uv_pix = control_points_uv_pix  # Control points (uv and xyz)
-        if self.control_points_uv_pix is not None:
-            self.control_points_uv_pix = np.array(self.control_points_uv_pix)
         self.norm = normal
     
     @classmethod
@@ -73,9 +69,6 @@ class FitPlaneElastic:
             neighbors=None
         )
 
-        # Store control points
-        control_points_uv_pix = fluorescent_image_points_uv_pix
-
         def normal(template_positions_xyz_mm):
             """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
             """
@@ -100,7 +93,7 @@ class FitPlaneElastic:
         
         norm = normal(template_positions_xyz_mm)
 
-        return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, control_points_uv_pix, norm)
+        return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, norm)
     
     def get_xyz_from_uv(self, uv_pix):
         """
