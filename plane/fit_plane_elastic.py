@@ -10,7 +10,7 @@ class FitPlaneElastic:
     Supports forward mapping (uv -> xyz) and reverse mapping (xyz -> uv) using separate interpolators.
     """
     
-    def __init__(self, uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, control_points_uv_pix=None):
+    def __init__(self, uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, control_points_uv_pix=None, normal=None):
         """
         Initialize the FitPlaneElastic class.
 
@@ -24,6 +24,7 @@ class FitPlaneElastic:
         self.control_points_uv_pix = control_points_uv_pix  # Control points (uv and xyz)
         if self.control_points_uv_pix is not None:
             self.control_points_uv_pix = np.array(self.control_points_uv_pix)
+        self.norm = normal
     
     @classmethod
     def from_points(cls, fluorescent_image_points_uv_pix, template_positions_xyz_mm, print_inputs=False):
@@ -75,7 +76,31 @@ class FitPlaneElastic:
         # Store control points
         control_points_uv_pix = fluorescent_image_points_uv_pix
 
-        return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, control_points_uv_pix)
+        def normal(template_positions_xyz_mm):
+            """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
+            """
+            xyz_mm = np.array(template_positions_xyz_mm)
+
+            # Subtract the centroid to center the points
+            centroid = np.mean(xyz_mm, axis=0) 
+            centered_points = xyz_mm - centroid
+
+            # SVD
+            _, _, vh = np.linalg.svd(centered_points)
+
+            # The last row of vh is the normal vector to the best-fit plane
+            normal_vector = vh[-1, :]  
+
+            # Normalize the normal vector 
+            normal_vector /= np.linalg.norm(normal_vector)
+            if normal_vector[2] < 0:
+                normal_vector *= -1 # positive direction
+
+            return normal_vector
+        
+        norm = normal(template_positions_xyz_mm)
+
+        return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, control_points_uv_pix, norm)
     
     def get_xyz_from_uv(self, uv_pix):
         """
@@ -185,13 +210,33 @@ class FitPlaneElastic:
         # Input check
         uv_pix = np.array(uv_pix)
         xyz_mm = np.array(xyz_mm)
-        assert uv_pix.shape[0] == xyz_mm.shape[0]
+        assert uv_pix.shape[0] == xyz_mm.shape[0], "Mismatch in number of UV and XYZ points"
 
         uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
-        in_plane = np.sqrt(np.sum((uv_to_xyz[:,:2] - xyz_mm[:,:2])**2, axis=1))
-        out_plane = np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        # Error vector
+        error_xyz_mm = xyz_mm - uv_to_xyz
+        normal = self.norm.reshape(1, -1) 
+        normal_repeated = np.tile(normal, (xyz_mm.shape[0], 1))
+
+        # Project error on normal direction
+        error_xyz_projected_on_normal_mm = np.sum(error_xyz_mm * normal_repeated, axis=1, keepdims=True) * normal_repeated
+        # Out of plane error is in direction of the normal
+        out_plane_error_mm = np.linalg.norm(error_xyz_projected_on_normal_mm, axis=1)
+
+        # Overall error
+        all_error_mm = np.linalg.norm(error_xyz_mm, axis=1)
+        in_plane_error_mm = np.sqrt(all_error_mm**2 - out_plane_error_mm**2)
+
         if mean:
-            return np.mean(in_plane), np.mean(out_plane)
+            return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
         else:
-            return in_plane, out_plane
+            return in_plane_error_mm, out_plane_error_mm
+
+
+        # in_plane = np.sqrt(np.sum((uv_to_xyz[:,:2] - xyz_mm[:,:2])**2, axis=1))
+        # out_plane = np.abs(uv_to_xyz[:, 2] - xyz_mm[:, 2]) # Avg differences on z
+        # if mean:
+        #     return np.mean(in_plane), np.mean(out_plane)
+        # else:
+        #     return in_plane, out_plane
     
