@@ -59,10 +59,8 @@ class FitPlaneElastic:
         )
 
         # Inverse mapping
-        # Prevent singularity: perturb x and y
-        perturbation = np.random.normal(scale=1e-12, size=(template_positions_xyz_mm.shape[0], 2))
-        perturbation = np.hstack((perturbation, np.zeros((template_positions_xyz_mm.shape[0], 1))))
-        perturbed_template_positions_xyz_mm = template_positions_xyz_mm + perturbation
+        # Prevent singularity
+        perturbed_template_positions_xyz_mm = template_positions_xyz_mm + np.random.normal(scale=1e-12, size=(template_positions_xyz_mm.shape))
         
         xyz_to_uv_interpolator = RBFInterpolator(
             perturbed_template_positions_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
@@ -93,7 +91,7 @@ class FitPlaneElastic:
 
             return normal_vector
         
-        norm = normal(perturbed_template_positions_xyz_mm)
+        norm = normal(template_positions_xyz_mm)
 
         return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, norm)
     
