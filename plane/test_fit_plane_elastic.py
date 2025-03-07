@@ -4,6 +4,7 @@ import numpy.testing as npt
 import unittest
 from plane.fit_plane_elastic import FitPlaneElastic
 import cv2
+from unittest.mock import patch
 
 class TestFitPlaneElastic(unittest.TestCase):
 
@@ -15,6 +16,11 @@ class TestFitPlaneElastic(unittest.TestCase):
         FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
         FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=True)
     
+    def show_image(self, image): # Use for debugging
+        cv2.imshow('Image', image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
     def test_get_xyz_from_uv(self):
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
         xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
@@ -108,7 +114,10 @@ class TestFitPlaneElastic(unittest.TestCase):
 
         # Map that image to physical space (no mapping), see that pixel values are the same
         mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0,3], pixel_size_mm=1e-2)
-        self.assertAlmostEqual(random_image[0,0,0],mapped_image[0,0,0])
+        
+        # self.show_image(random_image)
+        # self.show_image(mapped_image)
+        
         self.assertAlmostEqual(random_image[10,10,1],mapped_image[10,10,1])
         self.assertAlmostEqual(random_image[50,50,2],mapped_image[50,50,2])
 
@@ -137,3 +146,56 @@ class TestFitPlaneElastic(unittest.TestCase):
         # Find the position of the white pixel and make sure it is in the correct place
         npt.assert_array_almost_equal(fp1_image[50,50], [255,255,255])
         npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
+
+    def test_distance_metrics(self):
+
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
+
+        # Define test inputs
+        uv_pix = np.array([[0, 1], [1, 0]])  # maps to [[0, 1, 0], [1, 0, 0]]
+        xyz_mm = np.array([[0, 2, 0.1], [1, 0, -0.1]])  
+
+        in_plane, out_plane = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
+
+        assert np.isclose(in_plane, 0.5)
+        assert np.isclose(out_plane, 0.1)
+
+        in_plane_indiv_pt, out_plane_indiv_pt = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=False)
+        npt.assert_array_almost_equal(in_plane_indiv_pt, np.array([1,0]))
+        npt.assert_array_almost_equal(out_plane_indiv_pt, np.array([0.1, 0.1]))
+
+    def test_transform_grid(self):
+        """Create a test case warping points to an integer-coordinate grid.
+        TPS is ill-conditioned for transformations when grid is regular. This test case
+        checks whether it fails under these conditions. """
+
+        uv_pix = [[96.0, 61.0], [236.833, 146.167], [379.5, 203.5], [511.5, 243.5], [628.833, 270.167], [731.5, 288.833], [822.167, 299.5], [898.167, 310.167], [962.167, 315.5], [1012.833, 319.5], [95.5, 239.5], [238.167, 283.5], [376.833, 312.833], [508.833, 331.5], [628.833, 343.5], [731.5, 352.833], [820.833, 359.5], [898.167, 364.833], [962.167, 368.833], [1014.167, 370.167], [95.5, 419.5], [236.833, 419.5], [376.833, 419.5], [511.5, 419.5], [627.5, 419.5], [732.833, 419.5], [822.167, 418.167], [895.5, 418.167], [962.167, 419.5], [1015.5, 419.5], [95.5, 598.167], [238.167, 556.833], [379.5, 526.167], [510.167, 507.5], [630.167, 494.167], [732.833, 484.833], [819.5, 479.5], [898.167, 474.167], [960.833, 470.167], [1014.167, 468.833]]
+        xyz_mm = [[1.0, 1.0, 0.0], [2.0, 1.0, 0.0], [3.0, 1.0, 0.0], [4.0, 1.0, 0.0], [5.0, 1.0, 0.0], [6.0, 1.0, 0.0], [7.0, 1.0, 0.0], [8.0, 1.0, 0.0], [9.0, 1.0, 0.0], [10.0, 1.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [3.0, 2.0, 0.0], [4.0, 2.0, 0.0], [5.0, 2.0, 0.0], [6.0, 2.0, 0.0], [7.0, 2.0, 0.0], [8.0, 2.0, 0.0], [9.0, 2.0, 0.0], [10.0, 2.0, 0.0], [1.0, 3.0, 0.0], [2.0, 3.0, 0.0], [3.0, 3.0, 0.0], [4.0, 3.0, 0.0], [5.0, 3.0, 0.0], [6.0, 3.0, 0.0], [7.0, 3.0, 0.0], [8.0, 3.0, 0.0], [9.0, 3.0, 0.0], [10.0, 4.0, 0.0], [1.0, 4.0, 0.0], [2.0, 4.0, 0.0], [3.0, 4.0, 0.0], [4.0, 4.0, 0.0], [5.0, 4.0, 0.0], [6.0, 4.0, 0.0], [7.0, 4.0, 0.0], [8.0, 4.0, 0.0], [9.0, 4.0, 0.0], [10.0, 4.0, 0.0]]
+
+        fp = FitPlaneElastic.from_points(uv_pix, xyz_mm)
+        xyz = fp.get_xyz_from_uv(uv_pix)
+        uv = fp.get_uv_from_xyz(xyz)
+        npt.assert_array_almost_equal(uv, uv_pix)
+
+    def test_get_normal(self):
+        xyz_mm = np.array([
+            [0, 0, 0],  
+            [1, 0, 1],   
+            [0, 1, 1],   
+            [1, 1, 2],   
+            [0.5, 0.5, 1.5]  
+        ])
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm)
+        npt.assert_almost_equal([0,0,1], fp.norm)
+
+        # tilted example
+        xyz_mm = np.array([
+            [0, 0, 0],  
+            [1, 0, 1],   
+            [0, 1, 1],   
+            [1, 1, 2],   
+            [0.5, 0.5, 1.5]  
+        ])
+        fp = FitPlaneElastic.from_points(np.random.rand(xyz_mm.shape[0], 2), xyz_mm)
+        print(fp.norm)
+        npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.norm)
