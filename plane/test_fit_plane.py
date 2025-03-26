@@ -42,6 +42,29 @@ class TestFitPlane(unittest.TestCase):
                 self.assertAlmostEqual(u[i], fp.u[i])
                 self.assertAlmostEqual(v[i], fp.v[i])
                 self.assertAlmostEqual(h[i], fp.h[i])
+    
+    def test_uv_xyz_mapping(self):
+        # 60 degree angle transform
+        u = [1,0,0]
+        v = [np.cos(np.deg2rad(60)),np.sin(np.deg2rad(60)), 0]
+        h = [0,0,5]    
+        fp = FitPlane(u,v,h)
+
+        # Single point forward and backward:
+        a = fp.get_xyz_from_uv([1,2])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0])
+        self.assertAlmostEqual(2, b[1])
+
+        # Batch point forward and backward:
+        a = fp.get_xyz_from_uv([[1,2], [3,4], [20,10]])
+        b = fp.get_uv_from_xyz(a)
+        self.assertAlmostEqual(1, b[0][0])
+        self.assertAlmostEqual(2, b[0][1])
+        self.assertAlmostEqual(20, b[2][0])
+        self.assertAlmostEqual(10, b[2][1])
+        self.assertAlmostEqual(3, b[1][0])
+        self.assertAlmostEqual(4, b[1][1])
 
     def test_conversion_pixel_position_to_physical_and_back_non_orthogonal_uv(self):
         # 60 degree angle

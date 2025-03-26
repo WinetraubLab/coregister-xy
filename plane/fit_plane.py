@@ -183,7 +183,7 @@ class FitPlane:
     def get_xyz_from_uv(self, point_pix):
         """ Get the 3D physical coordinates of pixels in the image [u_pix, v_pix] """
         A = np.vstack([self.u, self.v, self.h]).T
-        uv_pix = np.asarray(point_pix)
+        uv_pix = np.array(point_pix)
 
         if uv_pix.ndim == 1: # Single point. shape (2,) -> (1, 2)
             uv_pix = uv_pix[np.newaxis, :]
