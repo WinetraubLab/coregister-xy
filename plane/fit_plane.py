@@ -181,16 +181,45 @@ class FitPlane:
         return a,b,c,d
 
     def get_xyz_from_uv(self, point_pix):
-        """ Get the 3D physical coordinates of a specific pixel in the image [u_pix, v_pix] """
+        """ Get the 3D physical coordinates of pixels in the image [u_pix, v_pix] """
         A = np.vstack([self.u, self.v, self.h]).T
-        point_mat = np.array([point_pix[0], point_pix[1], 1])
-        return np.dot(A, point_mat)
+        uv_pix = np.asarray(point_pix)
+
+        if uv_pix.ndim == 1: # Single point. shape (2,) -> (1, 2)
+            uv_pix = uv_pix[np.newaxis, :]
+            single_point = True
+        else:
+            single_point = False
+
+        # Add homogeneous coordinate (N, 2) -> (N, 3)
+        ones = np.ones((uv_pix.shape[0], 1))
+        points_mat = np.hstack([uv_pix, ones]) 
+
+        xyz_coords = points_mat @ A.T 
+
+        if single_point:
+            return xyz_coords[0]  # Return (3,) for single input
+        return xyz_coords  # Return (N, 3)
     
     def get_uv_from_xyz(self, point_mm):
-        A = np.vstack([self.u, self.v, self.h]).T
-        point_mat = np.array([point_mm[0], point_mm[1], point_mm[2]])
-        uv = np.dot(np.linalg.inv(A), point_mat)
-        return np.array([uv[0],uv[1]])
+        """ Get the UV pixel coordinates of points in 3D xyz space"""
+        A = np.vstack([self.u, self.v, self.h]).T  
+        A_inv = np.linalg.inv(A)
+
+        point_mm = np.asarray(point_mm)
+
+        if point_mm.ndim == 1: # Single point: (3,) → (1, 3)
+            point_mm = point_mm[np.newaxis, :]
+            single_point = True
+        else:
+            single_point = False
+
+        uv_all = point_mm @ A_inv.T  # Shape: (N, 3)
+        uv = uv_all[:, :2]  # Shape: (N, 2)
+
+        if single_point:
+            return uv[0]  # Shape: (2,)
+        return uv  # Shape: (N, 2)
     
     def distance_from_origin_mm(self):
         """ Compute a signed distance from origin """
