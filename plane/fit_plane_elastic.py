@@ -23,13 +23,15 @@ class FitPlaneElastic:
         self.norm = normal
     
     @classmethod
-    def from_points(cls, fluorescent_image_points_uv_pix, template_positions_xyz_mm, print_inputs=False):
+    def from_points(cls, fluorescent_image_points_uv_pix, template_positions_xyz_mm, smoothing=0, print_inputs=False):
         """
         Initialize a FitPlaneElastic object using control points.
 
         Args:
             fluorescent_image_points_uv_pix: 2D source points (uv) as a numpy array of shape (n, 2).
             template_positions_xyz_mm: 3D target points (xyz) as a numpy array of shape (n, 3).
+            smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0. 
+            Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
             print_inputs: If True, print the inputs for debugging.
 
         Returns:
@@ -55,7 +57,8 @@ class FitPlaneElastic:
             fluorescent_image_points_uv_pix,  # 2D source points (uv)
             template_positions_xyz_mm,  # 3D target points (xyz)
             kernel='thin_plate_spline',  
-            neighbors=None  # Use all points for interpolation
+            neighbors=None,  # Use all points for interpolation
+            smoothing=smoothing
         )
 
         # Inverse mapping
@@ -66,7 +69,8 @@ class FitPlaneElastic:
             perturbed_template_positions_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
             fluorescent_image_points_uv_pix,  
             kernel='thin_plate_spline', 
-            neighbors=None
+            neighbors=None,
+            smoothing=smoothing
         )
 
         def normal(template_positions_xyz_mm):

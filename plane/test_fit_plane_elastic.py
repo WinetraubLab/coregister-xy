@@ -33,6 +33,14 @@ class TestFitPlaneElastic(unittest.TestCase):
         # Check that transformation projects xyz to uv
         npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix)
 
+    def test_uv_to_xyz_back_to_uv_with_smoothing(self):
+        rand = np.random.rand(np.array(self.template_positions_xyz_mm).shape[0], np.array(self.template_positions_xyz_mm).shape[1])
+        template_positions_xyz_mm_perturbed = self.template_positions_xyz_mm + rand
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, template_positions_xyz_mm_perturbed, smoothing=1e-4, print_inputs=False)
+        xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
+        uv = fp.get_uv_from_xyz(xyz)
+        npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix, decimal=3)
+
     def test_uv_to_xyz_back_to_uv(self):
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
         xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
