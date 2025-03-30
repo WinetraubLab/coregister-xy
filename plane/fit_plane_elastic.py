@@ -3,6 +3,7 @@ import json
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
 from sklearn.metrics import mean_absolute_error
+import numpy.testing as npt
 
 class FitPlaneElastic:
     """
@@ -73,6 +74,16 @@ class FitPlaneElastic:
             smoothing=smoothing
         )
 
+        # Check that this mapping works x = reverse(forward(x))
+        test_xyz = uv_to_xyz_interpolator(fluorescent_image_points_uv_pix)
+        test_uv = xyz_to_uv_interpolator(test_xyz[:,:2])
+        try:
+            npt.assert_array_almost_equal(test_uv, fluorescent_image_points_uv_pix, decimal=3)
+        except AssertionError as e:
+            raise AssertionError(
+                "Inverse consistency check failed. Check that the anchor points are not in a grid, or reduce smoothing parameter."
+            ) from e
+        
         def normal(template_positions_xyz_mm):
             """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
             """
@@ -228,3 +239,4 @@ class FitPlaneElastic:
             return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
         else:
             return in_plane_error_mm, out_plane_error_mm
+        
