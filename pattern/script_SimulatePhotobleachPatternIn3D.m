@@ -7,7 +7,10 @@ patternCenter_mm = [0,0,0;
                     1,0,0;
                     -1,0,0;
                     0,-1,0];
-                    
+
+% Simulation output
+output_tiff_file = 'out_xy.tiff';
+
 % Load the pattern
 [x_start_mm, x_end_mm, y_start_mm, y_end_mm, z_start_end_mm] = ...
     generateXYPattern(false, patternCenter_mm);
@@ -25,13 +28,14 @@ lambda_mm = 900e-9*1e3; % Wavelength in m
 n = 1.4; % Medium index of refraction
 photobleach_intensity = 40/(diff(y_grid_mm(1:2))/1e-3); % Can be any number >0
 
+% OCT box coordinates/size
+xOverall_mm = [-0.25 0.25]; 
+yOverall_mm = [-0.25 0.25];
+
 % Plot OCT volume on top?
-oct_scan_mm = [-0.25 0.25]; % OCT x-y scan size
+oct_scan_mm = [xOverall_mm;yOverall_mm]; % OCT x-y scan size
 % If you don't want to plot oct_scan_mm, un-comment:
 % oct_scan_mm = nan;
-
-% Simulation output
-output_tiff_file = 'out_xy.tiff';
 
 % If set to true, will ignore depth and generate just one plane
 flatten_tiff = false;
@@ -133,12 +137,12 @@ function c_all = addOCTScanRectangle(c_all, xx_mm, yy_mm, oct_scan_mm,pixel_size
 r = zeros(size(c_all));
 
 % Left and right borders
-r(yy_mm >= oct_scan_mm(1) & yy_mm <= oct_scan_mm(2) & abs(xx_mm-oct_scan_mm(1)) < pixel_size_mm) = 1;
-r(yy_mm >= oct_scan_mm(1) & yy_mm <= oct_scan_mm(2) & abs(xx_mm-oct_scan_mm(2)) < pixel_size_mm) = 1;
+r(yy_mm >= oct_scan_mm(2,1) & yy_mm <= oct_scan_mm(2,2) & abs(xx_mm-oct_scan_mm(1,1)) < pixel_size_mm) = 1;
+r(yy_mm >= oct_scan_mm(2,1) & yy_mm <= oct_scan_mm(2,2) & abs(xx_mm-oct_scan_mm(1,2)) < pixel_size_mm) = 1;
 
 % Top and bottom borders 
-r(xx_mm >= oct_scan_mm(1) & xx_mm <= oct_scan_mm(2) & abs(yy_mm-oct_scan_mm(1)) < pixel_size_mm) = 1;
-r(xx_mm >= oct_scan_mm(1) & xx_mm <= oct_scan_mm(2) & abs(yy_mm-oct_scan_mm(2)) < pixel_size_mm) = 1;
+r(xx_mm >= oct_scan_mm(1,1) & xx_mm <= oct_scan_mm(1,2) & abs(yy_mm-oct_scan_mm(2,1)) < pixel_size_mm) = 1;
+r(xx_mm >= oct_scan_mm(1,1) & xx_mm <= oct_scan_mm(1,2) & abs(yy_mm-oct_scan_mm(2,2)) < pixel_size_mm) = 1;
 
 c_all(r==1) = 0;
 
