@@ -46,8 +46,8 @@ class FitPlaneElastic:
         # Input validation
         anchor_points_uv_pix = np.array(anchor_points_uv_pix)
         anchor_points_xyz_mm = np.array(anchor_points_xyz_mm)
-        if anchor_points_uv_pix.shape[0] != anchor_points_uv_pix.shape[0]:
-            raise ValueError("Number of points should be the same between anchor_points_uv_pix and template_positions_xyz_mm")
+        if anchor_points_uv_pix.shape[0] != anchor_points_xyz_mm.shape[0]:
+            raise ValueError("Number of points should be the same between anchor_points_uv_pix and anchor_points_xyz_mm")
         if anchor_points_uv_pix.shape[1] != 2:
             raise ValueError("anchor_points_uv_pix must have shape (n, 2)")
         if anchor_points_xyz_mm.shape[1] != 3:
@@ -193,7 +193,7 @@ class FitPlaneElastic:
                 map_coordinates(
                     cv2_image[:, :, channel],  # Extract one channel
                     [v_coords, u_coords],     # Use UV coordinates
-                    order=1,                  # Bi-linear interpolation
+                    order=3,                  # Cubic interpolation
                     mode='constant',          # Fill with zeros outside boundaries
                     cval=0.0                 # Fill value
                 )
@@ -205,7 +205,7 @@ class FitPlaneElastic:
             transformed_image = map_coordinates(
                 cv2_image,
                 [v_coords, u_coords],
-                order=1,
+                order=3,
                 mode='constant',
                 cval=0.0
             )
