@@ -1,36 +1,41 @@
 import numpy as np
-import json
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
-from sklearn.metrics import mean_absolute_error
 import numpy.testing as npt
 
 class FitPlaneElastic:
     """
     A class to perform 2D-to-3D Thin Plate Spline (TPS) transformations using RBFInterpolator.
-    Supports forward mapping (uv -> xyz) and reverse mapping (xyz -> uv) using separate interpolators.
+    Supports forward mapping (uv -> xyz) and reverse mapping (xyz -> uv) using a separate interpolator.
     """
     
-    def __init__(self, uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, normal=None):
+    def __init__(self,
+                 anchor_points_uv_pix=None,
+                 anchor_points_xyz_mm=None,
+                 uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, normal=None):
         """
         Initialize the FitPlaneElastic class.
 
         Args:
             uv_to_xyz_interpolator: An RBFInterpolator object for forward mapping (uv -> xyz).
             xyz_to_uv_interpolator: An RBFInterpolator object for reverse mapping (xyz -> uv).
+            anchor_points_uv_pix: Store anchor_points for future usage.
+            anchor_points_xyz_mm: Store anchor_points for future usage.
         """
         self.uv_to_xyz_interpolator = uv_to_xyz_interpolator  # Forward interpolator (uv -> xyz)
         self.xyz_to_uv_interpolator = xyz_to_uv_interpolator  # Inverse interpolator (xyz -> uv)
+        self.anchor_points_xyz_mm = anchor_points_xyz_mm
+        self.anchor_points_uv_pix = anchor_points_uv_pix
         self.norm = normal
     
     @classmethod
-    def from_points(cls, fluorescent_image_points_uv_pix, template_positions_xyz_mm, smoothing=0, print_inputs=False):
+    def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
         """
         Initialize a FitPlaneElastic object using control points.
 
         Args:
-            fluorescent_image_points_uv_pix: 2D source points (uv) as a numpy array of shape (n, 2).
-            template_positions_xyz_mm: 3D target points (xyz) as a numpy array of shape (n, 3).
+            anchor_points_uv_pix: These are the positions of anchor points on the image (uv) as a numpy array of shape (n, 2).
+            anchor_points_xyz_mm: These are the same points in physical space (xyz) as a numpy array of shape (n, 3).
             smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0. 
             Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
             print_inputs: If True, print the inputs for debugging.
@@ -39,24 +44,24 @@ class FitPlaneElastic:
             A FitPlaneElastic object.
         """
         # Input validation
-        fluorescent_image_points_uv_pix = np.array(fluorescent_image_points_uv_pix)
-        template_positions_xyz_mm = np.array(template_positions_xyz_mm)
-        if fluorescent_image_points_uv_pix.shape[0] != template_positions_xyz_mm.shape[0]:
-            raise ValueError("Number of points should be the same between fluorescent_image_points_uv_pix and template_positions_xyz_mm")
-        if fluorescent_image_points_uv_pix.shape[1] != 2:
-            raise ValueError("fluorescent_image_points_uv_pix must have shape (n, 2)")
-        if template_positions_xyz_mm.shape[1] != 3:
-            raise ValueError("template_positions_xyz_mm must have shape (n, 3)")
+        anchor_points_uv_pix = np.array(anchor_points_uv_pix)
+        anchor_points_xyz_mm = np.array(anchor_points_xyz_mm)
+        if anchor_points_uv_pix.shape[0] != anchor_points_uv_pix.shape[0]:
+            raise ValueError("Number of points should be the same between anchor_points_uv_pix and template_positions_xyz_mm")
+        if anchor_points_uv_pix.shape[1] != 2:
+            raise ValueError("anchor_points_uv_pix must have shape (n, 2)")
+        if anchor_points_xyz_mm.shape[1] != 3:
+            raise ValueError("anchor_points_xyz_mm must have shape (n, 3)")
 
         # Print inputs for debugging
         if print_inputs:
-            print("fluorescent_image_points_uv_pix:\n", fluorescent_image_points_uv_pix)
-            print("template_positions_xyz_mm:\n", template_positions_xyz_mm)
+            print("anchor_points_uv_pix:\n", anchor_points_uv_pix)
+            print("anchor_points_xyz_mm:\n", anchor_points_xyz_mm)
 
         # Create forward interpolator (uv -> xyz)
         uv_to_xyz_interpolator = RBFInterpolator(
-            fluorescent_image_points_uv_pix,  # 2D source points (uv)
-            template_positions_xyz_mm,  # 3D target points (xyz)
+            anchor_points_uv_pix,  # 2D source points (uv)
+            anchor_points_xyz_mm,  # 3D target points (xyz)
             kernel='thin_plate_spline',  
             neighbors=None,  # Use all points for interpolation
             smoothing=smoothing
@@ -64,30 +69,29 @@ class FitPlaneElastic:
 
         # Inverse mapping
         # Prevent singularity
-        perturbed_template_positions_xyz_mm = template_positions_xyz_mm + np.random.normal(scale=1e-12, size=(template_positions_xyz_mm.shape))
+        perturbed_anchor_points_xyz_mm = anchor_points_xyz_mm + np.random.normal(scale=1e-12, size=anchor_points_xyz_mm.shape)
         
         xyz_to_uv_interpolator = RBFInterpolator(
-            perturbed_template_positions_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
-            fluorescent_image_points_uv_pix,  
+            perturbed_anchor_points_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
+            anchor_points_uv_pix,
             kernel='thin_plate_spline', 
             neighbors=None,
             smoothing=smoothing
         )
 
         # Check that this mapping works x = reverse(forward(x))
-        test_xyz = uv_to_xyz_interpolator(fluorescent_image_points_uv_pix)
+        test_xyz = uv_to_xyz_interpolator(anchor_points_uv_pix)
         test_uv = xyz_to_uv_interpolator(test_xyz[:,:2])
         try:
-            npt.assert_array_almost_equal(test_uv, fluorescent_image_points_uv_pix, decimal=3)
+            npt.assert_array_almost_equal(test_uv, anchor_points_uv_pix, decimal=3)
         except AssertionError as e:
             raise AssertionError(
                 "Inverse consistency check failed. Check that the anchor points are not in a grid, or reduce smoothing parameter."
             ) from e
         
-        def normal(template_positions_xyz_mm):
+        def normal(xyz_mm):
             """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
             """
-            xyz_mm = np.array(template_positions_xyz_mm)
 
             # Subtract the centroid to center the points
             centroid = np.mean(xyz_mm, axis=0) 
@@ -106,9 +110,9 @@ class FitPlaneElastic:
 
             return normal_vector
         
-        norm = normal(template_positions_xyz_mm)
+        norm = normal(anchor_points_xyz_mm)
 
-        return cls(uv_to_xyz_interpolator, xyz_to_uv_interpolator, norm)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_interpolator, xyz_to_uv_interpolator, norm)
     
     def get_xyz_from_uv(self, uv_pix):
         """
@@ -189,7 +193,7 @@ class FitPlaneElastic:
                 map_coordinates(
                     cv2_image[:, :, channel],  # Extract one channel
                     [v_coords, u_coords],     # Use UV coordinates
-                    order=1,                  # Bilinear interpolation
+                    order=1,                  # Bi-linear interpolation
                     mode='constant',          # Fill with zeros outside boundaries
                     cval=0.0                 # Fill value
                 )
