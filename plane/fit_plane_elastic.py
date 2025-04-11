@@ -2,6 +2,7 @@ import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
 import numpy.testing as npt
+import matplotlib.pyplot as plt
 
 class FitPlaneElastic:
     """
@@ -243,4 +244,47 @@ class FitPlaneElastic:
             return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
         else:
             return in_plane_error_mm, out_plane_error_mm
+
+    def plot_explore_anchor_points_fit_quality(self, figure_title=""):
+        """
+                Plot how well the plane fit matches anchor points
+                figure_title: figure title if exists.
+        """
+
+        # Convert UV points to XYZ
+        plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+
+        # Set up  figure
+        fig, axes = plt.subplots(1, 2, figsize=(4.5 *2, 4.5), constrained_layout=True)
+
+        # Plot XY Projection
+        axes[0].scatter(
+            plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 1], label="Anchor Points (With Fit)")
+        axes[0].scatter(
+            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 1],
+            label="Anchor Points (Raw)", marker='^')
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
+            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
+        axes[0].set_xlabel("X [mm]")
+        axes[0].set_ylabel("Y [mm]")
+        axes[0].grid(True)
+        axes[0].legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
+        axes[0].set_title("XY Projection of Anchor Points\n", fontsize=14)
+
+        # Plot XZ Projection
+        axes[1].scatter(
+            plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 2], label="Anchor Points (With Fit)")
+        axes[1].scatter(
+            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 2],
+            label="Anchor Points (Raw)", marker='^')
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
+            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
+        axes[1].set_xlabel("X [mm]")
+        axes[1].set_ylabel("Z [mm]")
+        axes[1].grid(True)
+        axes[1].set_title("XZ Projection of Anchor Points", fontsize=14)
+
+        fig.suptitle(figure_title, fontsize=14)
+        plt.show()
+
         
