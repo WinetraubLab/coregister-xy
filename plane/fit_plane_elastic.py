@@ -27,6 +27,7 @@ class FitPlaneElastic:
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
         self.norm = normal
+
     
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
@@ -211,6 +212,42 @@ class FitPlaneElastic:
             )
 
         return transformed_image
+
+    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm):
+        """
+        Given a vector, split it into plane and out-plane components.
+        Args:
+            vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
+        Outputs:
+            in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
+            out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
+        """
+        vec_xyz_mm = np.array(vec_xyz_mm)
+        if vec_xyz_mm.ndim == 1:
+            flatten_output = True
+            vec_xyz_mm = vec_xyz_mm[np.newaxis, :]
+        else:
+            flatten_output = False
+
+        normal_repeated = np.tile(self.norm.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+
+        # Project vector on normal direction to get the out of plane direction
+        out_plane_mm = np.sum(
+            vec_xyz_mm * normal_repeated, axis=1, keepdims=True) * normal_repeated
+
+        # In plane is what is left
+        in_plane_mm = vec_xyz_mm - out_plane_mm
+
+        if flatten_output:
+            in_plane_mm = in_plane_mm.flatten()
+            out_plane_mm = out_plane_mm.flatten()
+
+        return in_plane_mm, out_plane_mm
+
+    def get_elastic_affine_diff(self, uv_pix):
+        xyz_elastic = self.get_uv_from_xyz(uv_pix)
+        xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
+        return xyz_elastic - xyz_affine
     
     def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
         """ 
