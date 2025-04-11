@@ -206,3 +206,9 @@ class TestFitPlaneElastic(unittest.TestCase):
         fp = FitPlaneElastic.from_points(np.random.rand(xyz_mm.shape[0], 2), xyz_mm)
         print(fp.norm)
         npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.norm)
+
+    def test_plots(self):
+        uv = [[0, 0], [100, 0], [0, 300]]  # pix
+        xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0]]  # mm
+        fp = FitPlaneElastic.from_points(uv, xyz)
+        fp.plot_explore_anchor_points_fit_quality('Figure 1')
