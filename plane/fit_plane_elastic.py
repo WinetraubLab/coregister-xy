@@ -2,6 +2,7 @@ import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
 import numpy.testing as npt
+from sklearn.linear_model import LinearRegression
 
 class FitPlaneElastic:
     """
@@ -28,6 +29,10 @@ class FitPlaneElastic:
         self.anchor_points_uv_pix = anchor_points_uv_pix
         self.norm = normal
 
+        # Fit a linear version
+        if self.uv_to_xyz_elastic_interpolator is not None:
+            self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+            self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
     
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
@@ -123,12 +128,27 @@ class FitPlaneElastic:
             uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
 
         Returns:
-            3D xyz coordinates as a numpy array of shape (n, 3).
+            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
         """
         uv_pix = np.array(uv_pix)
         if uv_pix.ndim == 1:
             uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
         return self.uv_to_xyz_elastic_interpolator(uv_pix)
+
+    def get_xyz_from_uv_affine(self, uv_pix):
+        """
+        Transforms UV points to XYZ using affine transformation.
+
+        Args:
+            uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
+
+        Returns:
+            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
+        """
+        uv_pix = np.array(uv_pix)
+        if uv_pix.ndim == 1:
+            uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
+        return self.uv_to_xyz_affine_interpolator.predict(uv_pix)
     
     def get_uv_from_xyz(self, xyz_mm):
         """
@@ -244,10 +264,13 @@ class FitPlaneElastic:
 
         return in_plane_mm, out_plane_mm
 
-    def get_elastic_affine_diff(self, uv_pix):
-        xyz_elastic = self.get_uv_from_xyz(uv_pix)
+    def get_elastic_affine_diff_mm(self, uv_pix):
+        """
+            Computes the difference between elastic and affine transformation, split to in plane and out-plane.
+        """
+        xyz_elastic = self.get_xyz_from_uv(uv_pix)
         xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
-        return xyz_elastic - xyz_affine
+        return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
     
     def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
         """ 
