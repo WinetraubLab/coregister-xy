@@ -91,7 +91,7 @@ class FitPlaneElastic:
         distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
         if np.any(distance_error_mm > 1e-3): # Consistency under 1 micron is okay!
             raise AssertionError(
-                "Inverse consistency check failed. Check that the anchor points are not in a grid, or reduce smoothing parameter."
+                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
             )
         
         def normal(xyz_mm):
