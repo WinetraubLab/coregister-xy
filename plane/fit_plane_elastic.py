@@ -86,14 +86,13 @@ class FitPlaneElastic:
         )
 
         # Check that this mapping works x = reverse(forward(x))
-        test_xyz = uv_to_xyz_elastic_interpolator(anchor_points_uv_pix)
-        test_uv = xyz_to_uv_elastic_interpolator(test_xyz[:,:2])
-        try:
-            npt.assert_array_almost_equal(test_uv, anchor_points_uv_pix, decimal=3)
-        except AssertionError as e:
+        test_uv = xyz_to_uv_elastic_interpolator(anchor_points_xyz_mm[:, :2])
+        test_xyz = uv_to_xyz_elastic_interpolator(test_uv)
+        distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
+        if np.any(distance_error_mm > 1e-3): # Consistency under 1 micron is okay!
             raise AssertionError(
-                "Inverse consistency check failed. Check that the anchor points are not in a grid, or reduce smoothing parameter."
-            ) from e
+                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+            )
         
         def normal(xyz_mm):
             """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
