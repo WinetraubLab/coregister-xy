@@ -275,7 +275,7 @@ class FitPlaneElastic:
             out_plane_mm = np.squeeze(out_plane_mm)
 
             # In plane coordinate system
-            axis_1 = np.array([1,0,0]) # X axis is first
+            axis_1 = np.array([1,0,0]) # X-axis is first
             axis_2 = -np.cross(axis_1, normal) # Conj
             axis_1_repeated = np.tile(axis_1.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
             axis_2_repeated = np.tile(axis_2.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
@@ -300,77 +300,101 @@ class FitPlaneElastic:
         xyz_elastic = self.get_xyz_from_uv(uv_pix)
         xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
-    
-    def get_anchor_points_raw_vs_fit_diff(self, use_elastic_fit=True):
-        """
-        Returns the distance between anchor points and fit
-
-        Args:
-            use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
-        Returns in plane and out of plane distances (mm).
-        """
-
-        # Compute anchor point position according to the fit
-        if use_elastic_fit:
-            anchor_points_fit_xyz_mm = np.squeeze(np.array(
-                [self.get_xyz_from_uv(p) for p in self.anchor_points_uv_pix]
-            ))
-        else:
-            anchor_points_fit_xyz_mm = np.squeeze(np.array(
-                [self.get_xyz_from_uv_affine(p) for p in self.anchor_points_uv_pix]
-            ))
-
-        # Error vector, split to in plane and out of plane
-        error_xyz_mm = self.anchor_points_xyz_mm - anchor_points_fit_xyz_mm
-        return self._split_vector_to_in_plane_and_out_plane(error_xyz_mm)
 
     def plot_explore_anchor_points_fit_quality(
-            self, figure_title="", use_elastic_fit=True):
+            self, figure_title="", coordinate_system='physical', use_elastic_fit=True):
         """
             Plot how well the plane fit matches anchor points
 
             Args:
                 figure_title: figure title if exists.
+                coordinate_system: can be 'physical' (default) or 'fit'. If using physical, will plot errors in XY and
+                    XZ coordinates. If using fit, will plot errors in in_plane and out_plane.
                 use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
         """
 
-        # Convert UV points to XYZ
+        # Capture anchor points raw and fit
         if use_elastic_fit:
             plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
         else:
             plane_fit_xyz_mm = np.array([self.get_xyz_from_uv_affine(t) for t in self.anchor_points_uv_pix]).squeeze()
 
-        # Set up  figure
-        fig, axes = plt.subplots(1, 2, figsize=(4.5 *2, 4.5), constrained_layout=True)
+        # Split coordinates to in plane and out of plane
+        if coordinate_system == 'physical':
+            plane_fit_xyz_mm = plane_fit_xyz_mm
+            anchor_points_xyz_mm = self.anchor_points_xyz_mm
+        else:
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(plane_fit_xyz_mm, output_coordinate_system='plane')
+            plane_fit_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-        # Plot XY Projection
-        axes[0].scatter(
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(self.anchor_points_xyz_mm, output_coordinate_system='plane')
+            anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
+
+        # Set up  figure
+        fig, axes = plt.subplots(1, 4, figsize=(4.5 * 4, 4.5), constrained_layout=True)
+
+        # Plot XY/In plane Projection
+        plt.subplot(1, 4, 1)
+        plt.scatter(
             plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 1], label="Anchor Points (With Fit)")
-        axes[0].scatter(
-            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 1],
+        plt.scatter(
+            anchor_points_xyz_mm[:, 0], anchor_points_xyz_mm[:, 1],
             label="Anchor Points (Raw)", marker='^')
-        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
-            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
-        axes[0].set_xlabel("X [mm]")
-        axes[0].set_ylabel("Y [mm]")
-        axes[0].grid(True)
-        axes[0].legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
-        axes[0].set_title("XY Projection of Anchor Points\n", fontsize=14)
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
+            plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
+        plt.xlabel("X [mm]")
+        if coordinate_system == 'physical':
+            plt.ylabel("Y [mm]")
+            plt.title("XY Projection of Anchor Points\n", fontsize=14)
+        else:
+            plt.ylabel("Conj Axis [mm]")
+            plt.title("In Plane Projection of Anchor Points\n", fontsize=14)
+        plt.grid(True)
+        plt.legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
+
 
         # Plot XZ Projection
-        axes[1].scatter(
+        plt.subplot(1, 4, 2)
+        plt.scatter(
             plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 2], label="Anchor Points (With Fit)")
-        axes[1].scatter(
-            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 2],
+        plt.scatter(
+            anchor_points_xyz_mm[:, 0], anchor_points_xyz_mm[:, 2],
             label="Anchor Points (Raw)", marker='^')
-        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
-            axes[1].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
-        axes[1].set_xlabel("X [mm]")
-        axes[1].set_ylabel("Z [mm]")
-        axes[1].grid(True)
-        axes[1].set_title("XZ Projection of Anchor Points", fontsize=14)
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
+            plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
+        plt.xlabel("X [mm]")
+        if coordinate_system == 'physical':
+            plt.ylabel("Z [mm]")
+            plt.title("XZ Projection of Anchor Points", fontsize=14)
+        else:
+            plt.ylabel("Normal Axis [mm]")
+            plt.title("Out of Plane Projection of Anchor Points", fontsize=14)
+        plt.grid(True)
+
+        # Error Histogram
+        error_vec = plane_fit_xyz_mm - anchor_points_xyz_mm
+        in_plane_error = np.linalg.norm(error_vec[:,:2], axis=1)
+        out_plane_error = np.squeeze(np.abs(error_vec[:, 2]))
+
+        plt.subplot(1, 4, 3)
+        plt.hist(in_plane_error*1000, bins=10, color='teal', alpha=0.7)
+        if coordinate_system == 'physical':
+            plt.xlabel('XY Error [um]')
+            plt.title(f'Histogram XY Errors (mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+        else:
+            plt.xlabel('In Plane Error [um]')
+            plt.title(f'Histogram In-Plane Errors (mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+        plt.ylabel('Frequency')
+
+        plt.subplot(1, 4, 4)
+        plt.hist(out_plane_error * 1000, bins=10, color='teal', alpha=0.7)
+        if coordinate_system == 'physical':
+            plt.xlabel('Z Error [um]')
+            plt.title(f'Histogram Z Errors (mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+        else:
+            plt.xlabel('In Out-Plane Error [um]')
+            plt.title(f'Histogram Out-Plane Errors (mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+        plt.ylabel('Frequency')
 
         fig.suptitle(figure_title, fontsize=14)
         plt.show()
-
-        

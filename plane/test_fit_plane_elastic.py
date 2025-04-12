@@ -295,3 +295,4 @@ class TestFitPlaneElastic(unittest.TestCase):
         fp = FitPlaneElastic.from_points(uv, xyz)
         fp.plot_explore_anchor_points_fit_quality('With Elastic Fit, should be close', use_elastic_fit=True)
         fp.plot_explore_anchor_points_fit_quality('Only Affine, should be further', use_elastic_fit=False)
+        fp.plot_explore_anchor_points_fit_quality('Only Affine, In Plane', use_elastic_fit=False, coordinate_system='plane')
