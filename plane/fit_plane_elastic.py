@@ -27,6 +27,7 @@ class FitPlaneElastic:
         self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
+        assert np.allclose(np.linalg.norm(normal),1) # Check that normal is normalized
         self.normal = normal
 
         # Fit a linear version
@@ -232,12 +233,16 @@ class FitPlaneElastic:
 
         return transformed_image
 
-    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm, forced_plane_normal = None):
+    def _split_vector_to_in_plane_and_out_plane(
+            self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
         """
         Given a vector, split it into plane and out-plane components.
         Args:
             vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
             forced_plane_normal: When set to 3D vector, will override plane normal to provided vector
+            output_coordinate_system: When set to 'physical' (default) then in_plane, out_plane will be 3D vectors (x,y,z)
+                When set to 'plane' then in_plane will be a 2D vector in plane coordinates, out_plane will be 1D vector
+                depicting out of plane coordinate
         Outputs:
             in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
             out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
@@ -253,6 +258,7 @@ class FitPlaneElastic:
         if forced_plane_normal is None:
             normal = self.normal
         else:
+            assert np.allclose(np.linalg.norm(forced_plane_normal),1)
             normal = np.array(forced_plane_normal)
         normal_repeated = np.tile(normal.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
 
@@ -263,10 +269,28 @@ class FitPlaneElastic:
         # In plane is what is left
         in_plane_mm = vec_xyz_mm - out_plane_mm
 
+        if output_coordinate_system == 'plane':
+            # Out of plane is a dot product with normal
+            out_plane_mm = np.sum(vec_xyz_mm * normal_repeated, axis=1, keepdims=True)
+            out_plane_mm = np.squeeze(out_plane_mm)
+
+            # In plane coordinate system
+            axis_1 = np.array([1,0,0]) # X axis is first
+            axis_2 = -np.cross(axis_1, normal) # Conj
+            axis_1_repeated = np.tile(axis_1.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+            axis_2_repeated = np.tile(axis_2.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+
+            # Compute projection to each axis
+            in_plane_coord_1_mm = np.sum(in_plane_mm * axis_1_repeated, axis=1, keepdims=True)
+            in_plane_coord_2_mm = np.sum(in_plane_mm * axis_2_repeated, axis=1, keepdims=True)
+
+            # Concatenate
+            in_plane_mm = np.squeeze(np.array([in_plane_coord_1_mm, in_plane_coord_2_mm]).transpose(), axis=0)
+
+        # Post process output
         if flatten_output:
             in_plane_mm = in_plane_mm.flatten()
             out_plane_mm = out_plane_mm.flatten()
-
         return in_plane_mm, out_plane_mm
 
     def get_elastic_affine_diff_mm(self, uv_pix):

@@ -54,13 +54,13 @@ class TestFitPlaneElastic(unittest.TestCase):
         uv = fp.get_uv_from_xyz(xyz)
         npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix)
 
-    def test_split_vector_to_in_plane_and_out_plane(self):
+    def test_split_vector_to_in_plane_and_out_plane_physical_coordinates(self):
         # Create a plane that is parallel to xy
         uv = [[0, 0], [100, 0], [0, 300], [100, 300]]  # pix
         xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0], [1, 3, 0]]  # mm
         fp = FitPlaneElastic.from_points(uv, xyz)
 
-        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([1,2,3])
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([1,2,3],output_coordinate_system='physical')
 
         # Check dimensions (one vector)
         self.assertAlmostEqual(in_p.shape[0],3)
@@ -94,6 +94,39 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertAlmostEqual(in_p[1, 1], 5)
         self.assertAlmostEqual(out_p[0, 2], 3)
         self.assertAlmostEqual(out_p[1, 2], 6)
+
+    def test_split_vector_to_in_plane_and_out_plane_plane_coordinates(self):
+        # Create a plane that is parallel to xy
+        uv = [[0, 0], [100, 0], [0, 300], [100, 300]]  # pix
+        xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0], [1, 3, 0]]  # mm
+        fp = FitPlaneElastic.from_points(uv, xyz)
+
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane(
+            [[1, 2, 3],[4, 5, 6],[-1,-2,-3]],output_coordinate_system='plane')
+
+        # Check sizes
+        self.assertAlmostEqual(in_p.shape[0], 3)
+        self.assertAlmostEqual(in_p.shape[1], 2)
+        self.assertAlmostEqual(out_p.shape[0], 3)
+        self.assertAlmostEqual(len(out_p.shape), 1)
+
+        # Check projection values
+        self.assertAlmostEqual(in_p[0,0], 1)
+        self.assertAlmostEqual(in_p[2, 0], -1)
+        self.assertAlmostEqual(in_p[1, 1], 5)
+        self.assertAlmostEqual(out_p[0], 3)
+        self.assertAlmostEqual(out_p[2], -3)
+
+        # Force normal to y axis and make sure that values are maintained
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane(
+            [[1, 2, 3], [-1, -2, -3]], forced_plane_normal=[0,-1,0], output_coordinate_system='plane')
+        self.assertAlmostEqual(in_p[0, 0], 1)
+        self.assertAlmostEqual(in_p[0, 1], 3)
+        self.assertAlmostEqual(in_p[1, 1], -3)
+        self.assertAlmostEqual(out_p[0], -2)
+        self.assertAlmostEqual(out_p[1], 2)
+
+
 
     def test_image_to_physical_translations_xy(self):
         # Create dummy plane with a random image
