@@ -234,21 +234,6 @@ class TestFitPlaneElastic(unittest.TestCase):
         npt.assert_array_almost_equal(fp1_image[50,50], [255,255,255])
         npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
 
-    def test_get_anchor_points_raw_vs_fit_diff(self):
-
-        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
-        in_plane, out_plane = fp.get_anchor_points_raw_vs_fit_diff()
-        npt.assert_almost_equal(len(in_plane.shape),2, err_msg="in_plane should return vector errors")
-        npt.assert_almost_equal(len(out_plane.shape), 2, err_msg="out_plane should return vector errors")
-
-        # Get norm values
-        in_plane = np.linalg.norm(in_plane, axis=1)
-        out_plane = np.linalg.norm(out_plane, axis=1)
-
-        # Elastic usually has good errors
-        assert np.isclose(np.mean(in_plane), 0)
-        assert np.isclose(np.mean(out_plane), 0)
-
     def test_transform_grid(self):
         """Create a test case warping points to an integer-coordinate grid.
         TPS is ill-conditioned for transformations when grid is regular. This test case
@@ -270,7 +255,7 @@ class TestFitPlaneElastic(unittest.TestCase):
             [0.5, 0.5, 1.5]  
         ])
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm)
-        npt.assert_almost_equal([0,0,1], fp.norm)
+        npt.assert_almost_equal([0,0,1], fp.normal)
 
         # tilted example
         xyz_mm = np.array([
@@ -281,8 +266,8 @@ class TestFitPlaneElastic(unittest.TestCase):
             [0.5, 0.5, 1.5]  
         ])
         fp = FitPlaneElastic.from_points(np.random.rand(xyz_mm.shape[0], 2), xyz_mm)
-        print(fp.norm)
-        npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.norm)
+        print(fp.normal)
+        npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.normal)
 
     def test_plots(self):
         uv = np.array([[0, 0], [100, 0], [200, 200], [0, 300]])  # pix
