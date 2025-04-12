@@ -13,7 +13,7 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None, normal=None):
+                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None):
         """
         Initialize the FitPlaneElastic class.
 
@@ -27,10 +27,8 @@ class FitPlaneElastic:
         self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
-        assert np.allclose(np.linalg.norm(normal),1) # Check that normal is normalized
-        self.normal = normal
 
-        # Fit a linear version
+        # Fit a linear (affine) interpolator
         if self.uv_to_xyz_elastic_interpolator is not None:
             self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
             self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
@@ -94,32 +92,34 @@ class FitPlaneElastic:
             raise AssertionError(
                 "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
             )
-        
-        def normal(xyz_mm):
-            """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
-            """
 
-            # Subtract the centroid to center the points
-            centroid = np.mean(xyz_mm, axis=0) 
-            centered_points = xyz_mm - centroid
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator,
+                   xyz_to_uv_elastic_interpolator)
 
-            # SVD
-            _, _, vh = np.linalg.svd(centered_points)
+    def normal(self):
+        """
+        Return a unit vector in the direction of the normal
+        Uses SVD to find the normal vector of the best fit plane for aoncor points.
+        """
+        xyz_mm = self.anchor_points_xyz_mm
 
-            # The last row of vh is the normal vector to the best-fit plane
-            normal_vector = vh[-1, :]  
+        # Subtract the centroid to center the points
+        centroid = np.mean(xyz_mm, axis=0)
+        centered_points = xyz_mm - centroid
 
-            # Normalize the normal vector 
-            normal_vector /= np.linalg.norm(normal_vector)
-            if normal_vector[2] < 0:
-                normal_vector *= -1 # positive direction
+        # SVD
+        _, _, vh = np.linalg.svd(centered_points)
 
-            return normal_vector
-        
-        normal = normal(anchor_points_xyz_mm)
+        # The last row of vh is the normal vector to the best-fit plane
+        normal_vector = vh[-1, :]
 
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator, xyz_to_uv_elastic_interpolator, normal)
-    
+        # Normalize the normal vector
+        normal_vector /= np.linalg.norm(normal_vector)
+        if normal_vector[2] < 0:
+            normal_vector *= -1  # positive direction
+
+        return normal_vector
+
     def get_xyz_from_uv(self, uv_pix):
         """
         Map 2D uv coordinates to 3D xyz coordinates using the forward interpolator.
@@ -256,7 +256,7 @@ class FitPlaneElastic:
 
         # Get the normal
         if forced_plane_normal is None:
-            normal = self.normal
+            normal = self.normal()
         else:
             assert np.allclose(np.linalg.norm(forced_plane_normal),1)
             normal = np.array(forced_plane_normal)

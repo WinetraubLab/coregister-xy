@@ -255,7 +255,7 @@ class TestFitPlaneElastic(unittest.TestCase):
             [0.5, 0.5, 1.5]  
         ])
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm)
-        npt.assert_almost_equal([0,0,1], fp.normal)
+        npt.assert_almost_equal([0,0,1], fp.normal())
 
         # tilted example
         xyz_mm = np.array([
@@ -266,8 +266,7 @@ class TestFitPlaneElastic(unittest.TestCase):
             [0.5, 0.5, 1.5]  
         ])
         fp = FitPlaneElastic.from_points(np.random.rand(xyz_mm.shape[0], 2), xyz_mm)
-        print(fp.normal)
-        npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.normal)
+        npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.normal())
 
     def test_plots(self):
         uv = np.array([[0, 0], [100, 0], [200, 200], [0, 300]])  # pix
