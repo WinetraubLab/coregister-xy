@@ -323,12 +323,17 @@ class FitPlaneElastic:
         if coordinate_system == 'physical':
             plane_fit_xyz_mm = plane_fit_xyz_mm
             anchor_points_xyz_mm = self.anchor_points_xyz_mm
+            normal_axis = [0, 0, 1] # Z
+            conj_axis = [0, 1, 0] # Y
         else:
             in_p, out_p = self._split_vector_to_in_plane_and_out_plane(plane_fit_xyz_mm, output_coordinate_system='plane')
             plane_fit_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
             in_p, out_p = self._split_vector_to_in_plane_and_out_plane(self.anchor_points_xyz_mm, output_coordinate_system='plane')
             anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
+
+            normal_axis = self.normal()
+            conj_axis = -np.cross(np.array([1,0,0]), normal_axis)  # Conj
 
         # Set up  figure
         fig, axes = plt.subplots(1, 4, figsize=(4.5 * 4, 4.5), constrained_layout=True)
@@ -342,12 +347,14 @@ class FitPlaneElastic:
             label="Anchor Points (Raw)", marker='^')
         for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
             plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
-        plt.xlabel("X [mm]")
         if coordinate_system == 'physical':
+            plt.xlabel("X [mm]")
             plt.ylabel("Y [mm]")
             plt.title("XY Projection of Anchor Points\n", fontsize=14)
         else:
-            plt.ylabel("Conj Axis [mm]")
+            normal_axis
+            plt.xlabel("X [mm]\n[1, 0, 0]")
+            plt.ylabel(f"Conj Axis [mm]\n[{conj_axis[0]:.2f}, {conj_axis[1]:.2f}, {conj_axis[2]:.2f}]")
             plt.title("In Plane Projection of Anchor Points\n", fontsize=14)
         plt.grid(True)
         plt.legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
@@ -362,13 +369,14 @@ class FitPlaneElastic:
             label="Anchor Points (Raw)", marker='^')
         for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
             plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
-        plt.xlabel("X [mm]")
         if coordinate_system == 'physical':
+            plt.xlabel("X [mm]")
             plt.ylabel("Z [mm]")
-            plt.title("XZ Projection of Anchor Points", fontsize=14)
+            plt.title("XZ Projection of Anchor Points\n", fontsize=14)
         else:
-            plt.ylabel("Normal Axis [mm]")
-            plt.title("Out of Plane Projection of Anchor Points", fontsize=14)
+            plt.xlabel("X [mm]\n[1, 0, 0]")
+            plt.ylabel(f"Normal Axis [mm]\n[{normal_axis[0]:.2f}, {normal_axis[1]:.2f}, {normal_axis[2]:.2f}]")
+            plt.title("Out of Plane Projection of Anchor Points\n", fontsize=14)
         plt.grid(True)
 
         # Error Histogram
@@ -380,20 +388,20 @@ class FitPlaneElastic:
         plt.hist(in_plane_error*1000, bins=10, color='teal', alpha=0.7)
         if coordinate_system == 'physical':
             plt.xlabel('XY Error [um]')
-            plt.title(f'Histogram XY Errors (mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+            plt.title(f'Histogram XY Errors\n(mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
         else:
             plt.xlabel('In Plane Error [um]')
-            plt.title(f'Histogram In-Plane Errors (mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+            plt.title(f'Histogram In-Plane Errors\n(mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
         plt.ylabel('Frequency')
 
         plt.subplot(1, 4, 4)
         plt.hist(out_plane_error * 1000, bins=10, color='teal', alpha=0.7)
         if coordinate_system == 'physical':
             plt.xlabel('Z Error [um]')
-            plt.title(f'Histogram Z Errors (mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+            plt.title(f'Histogram Z Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         else:
             plt.xlabel('In Out-Plane Error [um]')
-            plt.title(f'Histogram Out-Plane Errors (mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+            plt.title(f'Histogram Out-Plane Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         plt.ylabel('Frequency')
 
         fig.suptitle(figure_title, fontsize=14)
