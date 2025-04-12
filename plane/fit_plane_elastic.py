@@ -304,14 +304,20 @@ class FitPlaneElastic:
         else:
             return in_plane_error_mm, out_plane_error_mm
 
-    def plot_explore_anchor_points_fit_quality(self, figure_title=""):
+    def plot_explore_anchor_points_fit_quality(self, figure_title="", use_elastic_fit=True):
         """
-                Plot how well the plane fit matches anchor points
+            Plot how well the plane fit matches anchor points
+
+            Args:
                 figure_title: figure title if exists.
+                use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
         """
 
         # Convert UV points to XYZ
-        plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+        if use_elastic_fit:
+            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+        else:
+            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv_affine(t) for t in self.anchor_points_uv_pix]).squeeze()
 
         # Set up  figure
         fig, axes = plt.subplots(1, 2, figsize=(4.5 *2, 4.5), constrained_layout=True)

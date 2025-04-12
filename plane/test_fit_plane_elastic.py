@@ -257,7 +257,13 @@ class TestFitPlaneElastic(unittest.TestCase):
         npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.norm)
 
     def test_plots(self):
-        uv = [[0, 0], [100, 0], [0, 300]]  # pix
-        xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0]]  # mm
+        uv = np.array([[0, 0], [100, 0], [200, 200], [0, 300]])  # pix
+        xyz = np.array([[0, 0, 0], [1, 0, 0], [2, 2, 0], [0, 3, 0]])  # mm
+
+        # add some noise to xyz
+        np.random.seed(42)
+        xyz = xyz + np.random.normal(0,0.25,xyz.shape)
+
         fp = FitPlaneElastic.from_points(uv, xyz)
-        fp.plot_explore_anchor_points_fit_quality('Figure 1')
+        fp.plot_explore_anchor_points_fit_quality('With Elastic Fit, should be close', use_elastic_fit=True)
+        fp.plot_explore_anchor_points_fit_quality('Only Affine, should be further', use_elastic_fit=False)
