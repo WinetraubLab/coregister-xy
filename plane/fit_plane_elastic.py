@@ -27,7 +27,7 @@ class FitPlaneElastic:
         self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
-        self.norm = normal
+        self.normal = normal
 
         # Fit a linear version
         if self.uv_to_xyz_elastic_interpolator is not None:
@@ -115,9 +115,9 @@ class FitPlaneElastic:
 
             return normal_vector
         
-        norm = normal(anchor_points_xyz_mm)
+        normal = normal(anchor_points_xyz_mm)
 
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator, xyz_to_uv_elastic_interpolator, norm)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator, xyz_to_uv_elastic_interpolator, normal)
     
     def get_xyz_from_uv(self, uv_pix):
         """
@@ -232,11 +232,12 @@ class FitPlaneElastic:
 
         return transformed_image
 
-    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm):
+    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm, forced_plane_normal = None):
         """
         Given a vector, split it into plane and out-plane components.
         Args:
             vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
+            forced_plane_normal: When set to 3D vector, will override plane normal to provided vector
         Outputs:
             in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
             out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
@@ -248,7 +249,12 @@ class FitPlaneElastic:
         else:
             flatten_output = False
 
-        normal_repeated = np.tile(self.norm.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+        # Get the normal
+        if forced_plane_normal is None:
+            normal = self.normal
+        else:
+            normal = np.array(forced_plane_normal)
+        normal_repeated = np.tile(normal.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
 
         # Project vector on normal direction to get the out of plane direction
         out_plane_mm = np.sum(
