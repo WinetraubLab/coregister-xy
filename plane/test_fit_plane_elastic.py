@@ -31,6 +31,14 @@ class TestFitPlaneElastic(unittest.TestCase):
         # Check that transformation projects xyz to uv
         npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix)
 
+    def test_distance_from_elastic_to_affine(self):
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
+        e_in_plane, e_out_plane = fp.get_elastic_affine_diff_mm(self.fluorescent_image_points_positions_uv_pix)
+
+        zeros = np.tile([0, 0, 0], (len(self.fluorescent_image_points_positions_uv_pix), 1))
+        npt.assert_array_almost_equal(e_in_plane, zeros, decimal=3) # Almost equal to 1um
+        npt.assert_array_almost_equal(e_out_plane, zeros, decimal=3)
+
     def test_uv_to_xyz_back_to_uv_with_smoothing(self):
         rand = np.random.rand(np.array(self.template_positions_xyz_mm).shape[0], np.array(self.template_positions_xyz_mm).shape[1])
         template_positions_xyz_mm_perturbed = self.template_positions_xyz_mm + rand
@@ -44,6 +52,47 @@ class TestFitPlaneElastic(unittest.TestCase):
         xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
         uv = fp.get_uv_from_xyz(xyz)
         npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix)
+
+    def test_split_vector_to_in_plane_and_out_plane(self):
+        # Create a plane that is parallel to xy
+        uv = [[0, 0], [100, 0], [0, 300], [100, 300]]  # pix
+        xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0], [1, 3, 0]]  # mm
+        fp = FitPlaneElastic.from_points(uv, xyz)
+
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([1,2,3])
+
+        # Check dimensions (one vector)
+        self.assertAlmostEqual(in_p.shape[0],3)
+        self.assertAlmostEqual(len(in_p.shape), 1)
+        self.assertAlmostEqual(out_p.shape[0], 3)
+        self.assertAlmostEqual(len(out_p.shape), 1)
+
+        # Check component split
+        self.assertAlmostEqual(in_p[0], 1)
+        self.assertAlmostEqual(in_p[1], 2)
+        self.assertAlmostEqual(in_p[2], 0)
+        self.assertAlmostEqual(out_p[0], 0)
+        self.assertAlmostEqual(out_p[1], 0)
+        self.assertAlmostEqual(out_p[2], 3)
+
+        # Check sign
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([1, 2, -3])
+        self.assertAlmostEqual(out_p[2], -3)
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([-1, 2, 3])
+        self.assertAlmostEqual(in_p[0], -1)
+
+        # Check vector operation
+        in_p, out_p = fp._split_vector_to_in_plane_and_out_plane([[1, 2, 3],[4, 5, 6]])
+        self.assertAlmostEqual(in_p.shape[0], 2)
+        self.assertAlmostEqual(in_p.shape[1], 3)
+        self.assertAlmostEqual(out_p.shape[0], 2)
+        self.assertAlmostEqual(out_p.shape[1], 3)
+        self.assertAlmostEqual(in_p[0, 0], 1)
+        self.assertAlmostEqual(in_p[0, 1], 2)
+        self.assertAlmostEqual(in_p[1, 0], 4)
+        self.assertAlmostEqual(in_p[1, 1], 5)
+        self.assertAlmostEqual(out_p[0, 2], 3)
+        self.assertAlmostEqual(out_p[1, 2], 6)
 
     def test_image_to_physical_translations_xy(self):
         # Create dummy plane with a random image
@@ -238,3 +287,9 @@ class TestFitPlaneElastic(unittest.TestCase):
         fp = FitPlaneElastic.from_points(np.random.rand(xyz_mm.shape[0], 2), xyz_mm)
         print(fp.norm)
         npt.assert_almost_equal([-0.58961147, -0.58961147,  0.55201144], fp.norm)
+
+    def test_plots(self):
+        uv = [[0, 0], [100, 0], [0, 300]]  # pix
+        xyz = [[0, 0, 0], [1, 0, 0], [0, 3, 0]]  # mm
+        fp = FitPlaneElastic.from_points(uv, xyz)
+        fp.plot_explore_anchor_points_fit_quality('Figure 1')

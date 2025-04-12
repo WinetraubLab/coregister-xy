@@ -2,6 +2,8 @@ import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
 import numpy.testing as npt
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 class FitPlaneElastic:
     """
@@ -12,21 +14,26 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 uv_to_xyz_interpolator=None, xyz_to_uv_interpolator=None, normal=None):
+                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None, normal=None):
         """
         Initialize the FitPlaneElastic class.
 
         Args:
-            uv_to_xyz_interpolator: An RBFInterpolator object for forward mapping (uv -> xyz).
-            xyz_to_uv_interpolator: An RBFInterpolator object for reverse mapping (xyz -> uv).
+            uv_to_xyz_elastic_interpolator: An RBFInterpolator object for forward mapping (uv -> xyz).
+            xyz_to_uv_elastic_interpolator: An RBFInterpolator object for reverse mapping (xyz -> uv).
             anchor_points_uv_pix: Store anchor_points for future usage.
             anchor_points_xyz_mm: Store anchor_points for future usage.
         """
-        self.uv_to_xyz_interpolator = uv_to_xyz_interpolator  # Forward interpolator (uv -> xyz)
-        self.xyz_to_uv_interpolator = xyz_to_uv_interpolator  # Inverse interpolator (xyz -> uv)
+        self.uv_to_xyz_elastic_interpolator = uv_to_xyz_elastic_interpolator  # Forward interpolator (uv -> xyz)
+        self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
         self.norm = normal
+
+        # Fit a linear version
+        if self.uv_to_xyz_elastic_interpolator is not None:
+            self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+            self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
     
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
@@ -59,7 +66,7 @@ class FitPlaneElastic:
             print("anchor_points_xyz_mm:\n", anchor_points_xyz_mm)
 
         # Create forward interpolator (uv -> xyz)
-        uv_to_xyz_interpolator = RBFInterpolator(
+        uv_to_xyz_elastic_interpolator = RBFInterpolator(
             anchor_points_uv_pix,  # 2D source points (uv)
             anchor_points_xyz_mm,  # 3D target points (xyz)
             kernel='thin_plate_spline',  
@@ -71,7 +78,7 @@ class FitPlaneElastic:
         # Prevent singularity
         perturbed_anchor_points_xyz_mm = anchor_points_xyz_mm + np.random.normal(scale=1e-12, size=anchor_points_xyz_mm.shape)
         
-        xyz_to_uv_interpolator = RBFInterpolator(
+        xyz_to_uv_elastic_interpolator = RBFInterpolator(
             perturbed_anchor_points_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
             anchor_points_uv_pix,
             kernel='thin_plate_spline', 
@@ -80,14 +87,13 @@ class FitPlaneElastic:
         )
 
         # Check that this mapping works x = reverse(forward(x))
-        test_xyz = uv_to_xyz_interpolator(anchor_points_uv_pix)
-        test_uv = xyz_to_uv_interpolator(test_xyz[:,:2])
-        try:
-            npt.assert_array_almost_equal(test_uv, anchor_points_uv_pix, decimal=3)
-        except AssertionError as e:
+        test_uv = xyz_to_uv_elastic_interpolator(anchor_points_xyz_mm[:, :2])
+        test_xyz = uv_to_xyz_elastic_interpolator(test_uv)
+        distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
+        if np.any(distance_error_mm > 1e-3): # Consistency under 1 micron is okay!
             raise AssertionError(
-                "Inverse consistency check failed. Check that the anchor points are not in a grid, or reduce smoothing parameter."
-            ) from e
+                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+            )
         
         def normal(xyz_mm):
             """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
@@ -112,7 +118,7 @@ class FitPlaneElastic:
         
         norm = normal(anchor_points_xyz_mm)
 
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_interpolator, xyz_to_uv_interpolator, norm)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator, xyz_to_uv_elastic_interpolator, norm)
     
     def get_xyz_from_uv(self, uv_pix):
         """
@@ -122,12 +128,27 @@ class FitPlaneElastic:
             uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
 
         Returns:
-            3D xyz coordinates as a numpy array of shape (n, 3).
+            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
         """
         uv_pix = np.array(uv_pix)
         if uv_pix.ndim == 1:
             uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
-        return self.uv_to_xyz_interpolator(uv_pix)
+        return self.uv_to_xyz_elastic_interpolator(uv_pix)
+
+    def get_xyz_from_uv_affine(self, uv_pix):
+        """
+        Transforms UV points to XYZ using affine transformation.
+
+        Args:
+            uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
+
+        Returns:
+            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
+        """
+        uv_pix = np.array(uv_pix)
+        if uv_pix.ndim == 1:
+            uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
+        return self.uv_to_xyz_affine_interpolator.predict(uv_pix)
     
     def get_uv_from_xyz(self, xyz_mm):
         """
@@ -142,7 +163,7 @@ class FitPlaneElastic:
         xyz_mm = np.array(xyz_mm)
         if xyz_mm.ndim == 1:
             xyz_mm = xyz_mm[np.newaxis, :]  # Add batch dimension for single point
-        return self.xyz_to_uv_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
+        return self.xyz_to_uv_elastic_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
     
     def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
         """
@@ -211,6 +232,45 @@ class FitPlaneElastic:
             )
 
         return transformed_image
+
+    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm):
+        """
+        Given a vector, split it into plane and out-plane components.
+        Args:
+            vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
+        Outputs:
+            in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
+            out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
+        """
+        vec_xyz_mm = np.array(vec_xyz_mm)
+        if vec_xyz_mm.ndim == 1:
+            flatten_output = True
+            vec_xyz_mm = vec_xyz_mm[np.newaxis, :]
+        else:
+            flatten_output = False
+
+        normal_repeated = np.tile(self.norm.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+
+        # Project vector on normal direction to get the out of plane direction
+        out_plane_mm = np.sum(
+            vec_xyz_mm * normal_repeated, axis=1, keepdims=True) * normal_repeated
+
+        # In plane is what is left
+        in_plane_mm = vec_xyz_mm - out_plane_mm
+
+        if flatten_output:
+            in_plane_mm = in_plane_mm.flatten()
+            out_plane_mm = out_plane_mm.flatten()
+
+        return in_plane_mm, out_plane_mm
+
+    def get_elastic_affine_diff_mm(self, uv_pix):
+        """
+            Computes the difference between elastic and affine transformation, split to in plane and out-plane.
+        """
+        xyz_elastic = self.get_xyz_from_uv(uv_pix)
+        xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
+        return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
     
     def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
         """ 
@@ -243,4 +303,47 @@ class FitPlaneElastic:
             return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
         else:
             return in_plane_error_mm, out_plane_error_mm
+
+    def plot_explore_anchor_points_fit_quality(self, figure_title=""):
+        """
+                Plot how well the plane fit matches anchor points
+                figure_title: figure title if exists.
+        """
+
+        # Convert UV points to XYZ
+        plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+
+        # Set up  figure
+        fig, axes = plt.subplots(1, 2, figsize=(4.5 *2, 4.5), constrained_layout=True)
+
+        # Plot XY Projection
+        axes[0].scatter(
+            plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 1], label="Anchor Points (With Fit)")
+        axes[0].scatter(
+            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 1],
+            label="Anchor Points (Raw)", marker='^')
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
+            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
+        axes[0].set_xlabel("X [mm]")
+        axes[0].set_ylabel("Y [mm]")
+        axes[0].grid(True)
+        axes[0].legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
+        axes[0].set_title("XY Projection of Anchor Points\n", fontsize=14)
+
+        # Plot XZ Projection
+        axes[1].scatter(
+            plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 2], label="Anchor Points (With Fit)")
+        axes[1].scatter(
+            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 2],
+            label="Anchor Points (Raw)", marker='^')
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
+            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
+        axes[1].set_xlabel("X [mm]")
+        axes[1].set_ylabel("Z [mm]")
+        axes[1].grid(True)
+        axes[1].set_title("XZ Projection of Anchor Points", fontsize=14)
+
+        fig.suptitle(figure_title, fontsize=14)
+        plt.show()
+
         
