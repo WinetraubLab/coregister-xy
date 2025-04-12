@@ -343,7 +343,6 @@ class FitPlaneElastic:
             self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 2],
             label="Anchor Points (Raw)", marker='^')
         for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
-            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
         axes[1].set_xlabel("X [mm]")
         axes[1].set_ylabel("Z [mm]")
         axes[1].grid(True)
