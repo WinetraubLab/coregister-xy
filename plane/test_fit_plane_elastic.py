@@ -1,14 +1,13 @@
-import math
 import numpy as np
 import numpy.testing as npt
 import unittest
 from plane.fit_plane_elastic import FitPlaneElastic
 import cv2
-from unittest.mock import patch
 
 class TestFitPlaneElastic(unittest.TestCase):
 
     def setUp(self):
+        np.random.seed(42)
         self.fluorescent_image_points_positions_uv_pix = [[0, 1], [1, 0], [1, 1], [0.5, 0.5]]
         self.template_positions_xyz_mm = [[0, 1, 0], [1, 0, 0], [1, 1, 0], [0.5, 0.5, 0]]
 
@@ -101,7 +100,6 @@ class TestFitPlaneElastic(unittest.TestCase):
         uv = [[0,0],[100,0],[0,300], [100,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0], [1,3,0]] # mm
         fp = FitPlaneElastic.from_points(uv,xyz)
-        np.random.seed(42)
         random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
         # Map that image to the right, see that filled with black
@@ -189,7 +187,6 @@ class TestFitPlaneElastic(unittest.TestCase):
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
         fp2 = FitPlaneElastic.from_points(uv,xyz)
 
-        np.random.seed(42)
         blank = np.zeros((300, 100, 3))
         blank[50,50] = np.array([255,255,255])
         blank[20,70] = np.array([255,0,0])
@@ -204,22 +201,20 @@ class TestFitPlaneElastic(unittest.TestCase):
         npt.assert_array_almost_equal(fp1_image[50,50], [255,255,255])
         npt.assert_array_almost_equal(fp2_image[50,40], [255,255,255])
 
-    def test_distance_metrics(self):
+    def test_get_anchor_points_raw_vs_fit_diff(self):
 
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
+        in_plane, out_plane = fp.get_anchor_points_raw_vs_fit_diff()
+        npt.assert_almost_equal(len(in_plane.shape),2, err_msg="in_plane should return vector errors")
+        npt.assert_almost_equal(len(out_plane.shape), 2, err_msg="out_plane should return vector errors")
 
-        # Define test inputs
-        uv_pix = np.array([[0, 1], [1, 0]])  # maps to [[0, 1, 0], [1, 0, 0]]
-        xyz_mm = np.array([[0, 2, 0.1], [1, 0, -0.1]])  
+        # Get norm values
+        in_plane = np.linalg.norm(in_plane, axis=1)
+        out_plane = np.linalg.norm(out_plane, axis=1)
 
-        in_plane, out_plane = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=True)
-
-        assert np.isclose(in_plane, 0.5)
-        assert np.isclose(out_plane, 0.1)
-
-        in_plane_indiv_pt, out_plane_indiv_pt = fp.get_xyz_points_positions_distance_metrics(uv_pix, xyz_mm, mean=False)
-        npt.assert_array_almost_equal(in_plane_indiv_pt, np.array([1,0]))
-        npt.assert_array_almost_equal(out_plane_indiv_pt, np.array([0.1, 0.1]))
+        # Elastic usually has good errors
+        assert np.isclose(np.mean(in_plane), 0)
+        assert np.isclose(np.mean(out_plane), 0)
 
     def test_transform_grid(self):
         """Create a test case warping points to an integer-coordinate grid.
@@ -230,7 +225,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         xyz_mm = [[1.0, 1.0, 0.0], [2.0, 1.0, 0.0], [3.0, 1.0, 0.0], [4.0, 1.0, 0.0], [5.0, 1.0, 0.0], [6.0, 1.0, 0.0], [7.0, 1.0, 0.0], [8.0, 1.0, 0.0], [9.0, 1.0, 0.0], [10.0, 1.0, 0.0], [1.0, 2.0, 0.0], [2.0, 2.0, 0.0], [3.0, 2.0, 0.0], [4.0, 2.0, 0.0], [5.0, 2.0, 0.0], [6.0, 2.0, 0.0], [7.0, 2.0, 0.0], [8.0, 2.0, 0.0], [9.0, 2.0, 0.0], [10.0, 2.0, 0.0], [1.0, 3.0, 0.0], [2.0, 3.0, 0.0], [3.0, 3.0, 0.0], [4.0, 3.0, 0.0], [5.0, 3.0, 0.0], [6.0, 3.0, 0.0], [7.0, 3.0, 0.0], [8.0, 3.0, 0.0], [9.0, 3.0, 0.0], [10.0, 4.0, 0.0], [1.0, 4.0, 0.0], [2.0, 4.0, 0.0], [3.0, 4.0, 0.0], [4.0, 4.0, 0.0], [5.0, 4.0, 0.0], [6.0, 4.0, 0.0], [7.0, 4.0, 0.0], [8.0, 4.0, 0.0], [9.0, 4.0, 0.0], [10.0, 4.0, 0.0]]
 
         with self.assertRaises(AssertionError) as context:
-            fp = FitPlaneElastic.from_points(uv_pix, xyz_mm)
+            FitPlaneElastic.from_points(uv_pix, xyz_mm)
         self.assertIn("Inverse consistency check failed", str(context.exception))
 
     def test_get_normal(self):

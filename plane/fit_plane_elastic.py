@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
-import numpy.testing as npt
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
@@ -272,39 +271,31 @@ class FitPlaneElastic:
         xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
     
-    def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
-        """ 
-        uv_pix: coordinates in pixels, array shape (2,n)
-        xyz_mm: coordinates in mm, array shape (3,n)
-        mean: if True, average over all points. If False, return individual error per point
-        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
+    def get_anchor_points_raw_vs_fit_diff(self, use_elastic_fit=True):
         """
-        # Input check
-        uv_pix = np.array(uv_pix)
-        xyz_mm = np.array(xyz_mm)
-        assert uv_pix.shape[0] == xyz_mm.shape[0], "Mismatch in number of UV and XYZ points"
+        Returns the distance between anchor points and fit
 
-        uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
-        # Error vector
-        error_xyz_mm = xyz_mm - uv_to_xyz
-        normal = self.norm.reshape(1, -1) 
-        normal_repeated = np.tile(normal, (xyz_mm.shape[0], 1))
+        Args:
+            use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
+        Returns in plane and out of plane distances (mm).
+        """
 
-        # Project error on normal direction
-        error_xyz_projected_on_normal_mm = np.sum(error_xyz_mm * normal_repeated, axis=1, keepdims=True) * normal_repeated
-        # Out of plane error is in direction of the normal
-        out_plane_error_mm = np.linalg.norm(error_xyz_projected_on_normal_mm, axis=1)
-
-        # Overall error
-        all_error_mm = np.linalg.norm(error_xyz_mm, axis=1)
-        in_plane_error_mm = np.sqrt(all_error_mm**2 - out_plane_error_mm**2)
-
-        if mean:
-            return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
+        # Compute anchor point position according to the fit
+        if use_elastic_fit:
+            anchor_points_fit_xyz_mm = np.squeeze(np.array(
+                [self.get_xyz_from_uv(p) for p in self.anchor_points_uv_pix]
+            ))
         else:
-            return in_plane_error_mm, out_plane_error_mm
+            anchor_points_fit_xyz_mm = np.squeeze(np.array(
+                [self.get_xyz_from_uv_affine(p) for p in self.anchor_points_uv_pix]
+            ))
 
-    def plot_explore_anchor_points_fit_quality(self, figure_title="", use_elastic_fit=True):
+        # Error vector, split to in plane and out of plane
+        error_xyz_mm = self.anchor_points_xyz_mm - anchor_points_fit_xyz_mm
+        return self._split_vector_to_in_plane_and_out_plane(error_xyz_mm)
+
+    def plot_explore_anchor_points_fit_quality(
+            self, figure_title="", use_elastic_fit=True):
         """
             Plot how well the plane fit matches anchor points
 
