@@ -199,7 +199,7 @@ class FitPlaneElastic:
         xx_mm, yy_mm = np.meshgrid(x_mm, y_mm)
 
         # Flatten the grid for TPS transformation
-        mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel()]).T
+        mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel(), np.zeros_like(yy_mm.ravel())]).T
 
         # Map physical coordinates to UV coordinates using the inverse interpolator
         uv_points = self.get_uv_from_xyz(mm_points)
