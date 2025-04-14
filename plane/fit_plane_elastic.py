@@ -148,6 +148,7 @@ class FitPlaneElastic:
         uv_pix = np.array(uv_pix)
         if uv_pix.ndim == 1:
             uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
+        assert(uv_pix.shape[1] == 2) # Make sure that shape of input is (n, 2)
         return self.uv_to_xyz_affine_interpolator.predict(uv_pix)
     
     def get_uv_from_xyz(self, xyz_mm):
@@ -163,6 +164,8 @@ class FitPlaneElastic:
         xyz_mm = np.array(xyz_mm)
         if xyz_mm.ndim == 1:
             xyz_mm = xyz_mm[np.newaxis, :]  # Add batch dimension for single point
+        assert(xyz_mm.shape[1] == 3) # Make sure that shape of input is (n, 3)
+
         return self.xyz_to_uv_elastic_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
     
     def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
@@ -196,7 +199,7 @@ class FitPlaneElastic:
         xx_mm, yy_mm = np.meshgrid(x_mm, y_mm)
 
         # Flatten the grid for TPS transformation
-        mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel()]).T
+        mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel(), np.zeros_like(yy_mm.ravel())]).T
 
         # Map physical coordinates to UV coordinates using the inverse interpolator
         uv_points = self.get_uv_from_xyz(mm_points)
