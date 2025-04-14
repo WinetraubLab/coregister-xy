@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
-import numpy.testing as npt
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
@@ -14,7 +13,7 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None, normal=None):
+                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None):
         """
         Initialize the FitPlaneElastic class.
 
@@ -28,9 +27,8 @@ class FitPlaneElastic:
         self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
-        self.norm = normal
 
-        # Fit a linear version
+        # Fit a linear (affine) interpolator
         if self.uv_to_xyz_elastic_interpolator is not None:
             self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
             self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
@@ -94,32 +92,34 @@ class FitPlaneElastic:
             raise AssertionError(
                 "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
             )
-        
-        def normal(xyz_mm):
-            """ Uses SVD to find the normal vector of the best fit plane for the provided XYZ (template) points.
-            """
 
-            # Subtract the centroid to center the points
-            centroid = np.mean(xyz_mm, axis=0) 
-            centered_points = xyz_mm - centroid
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator,
+                   xyz_to_uv_elastic_interpolator)
 
-            # SVD
-            _, _, vh = np.linalg.svd(centered_points)
+    def normal(self):
+        """
+        Return a unit vector in the direction of the normal
+        Uses SVD to find the normal vector of the best fit plane for aoncor points.
+        """
+        xyz_mm = self.anchor_points_xyz_mm
 
-            # The last row of vh is the normal vector to the best-fit plane
-            normal_vector = vh[-1, :]  
+        # Subtract the centroid to center the points
+        centroid = np.mean(xyz_mm, axis=0)
+        centered_points = xyz_mm - centroid
 
-            # Normalize the normal vector 
-            normal_vector /= np.linalg.norm(normal_vector)
-            if normal_vector[2] < 0:
-                normal_vector *= -1 # positive direction
+        # SVD
+        _, _, vh = np.linalg.svd(centered_points)
 
-            return normal_vector
-        
-        norm = normal(anchor_points_xyz_mm)
+        # The last row of vh is the normal vector to the best-fit plane
+        normal_vector = vh[-1, :]
 
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator, xyz_to_uv_elastic_interpolator, norm)
-    
+        # Normalize the normal vector
+        normal_vector /= np.linalg.norm(normal_vector)
+        if normal_vector[2] < 0:
+            normal_vector *= -1  # positive direction
+
+        return normal_vector
+
     def get_xyz_from_uv(self, uv_pix):
         """
         Map 2D uv coordinates to 3D xyz coordinates using the forward interpolator.
@@ -236,11 +236,16 @@ class FitPlaneElastic:
 
         return transformed_image
 
-    def _split_vector_to_in_plane_and_out_plane(self, vec_xyz_mm):
+    def _split_vector_to_in_plane_and_out_plane(
+            self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
         """
         Given a vector, split it into plane and out-plane components.
         Args:
             vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
+            forced_plane_normal: When set to 3D vector, will override plane normal to provided vector
+            output_coordinate_system: When set to 'physical' (default) then in_plane, out_plane will be 3D vectors (x,y,z)
+                When set to 'plane' then in_plane will be a 2D vector in plane coordinates, out_plane will be 1D vector
+                depicting out of plane coordinate
         Outputs:
             in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
             out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
@@ -252,7 +257,13 @@ class FitPlaneElastic:
         else:
             flatten_output = False
 
-        normal_repeated = np.tile(self.norm.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+        # Get the normal
+        if forced_plane_normal is None:
+            normal = self.normal()
+        else:
+            assert np.allclose(np.linalg.norm(forced_plane_normal),1)
+            normal = np.array(forced_plane_normal)
+        normal_repeated = np.tile(normal.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
 
         # Project vector on normal direction to get the out of plane direction
         out_plane_mm = np.sum(
@@ -261,10 +272,28 @@ class FitPlaneElastic:
         # In plane is what is left
         in_plane_mm = vec_xyz_mm - out_plane_mm
 
+        if output_coordinate_system == 'plane':
+            # Out of plane is a dot product with normal
+            out_plane_mm = np.sum(vec_xyz_mm * normal_repeated, axis=1, keepdims=True)
+            out_plane_mm = np.squeeze(out_plane_mm)
+
+            # In plane coordinate system
+            axis_1 = np.array([1,0,0]) # X-axis is first
+            axis_2 = -np.cross(axis_1, normal) # Conj
+            axis_1_repeated = np.tile(axis_1.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+            axis_2_repeated = np.tile(axis_2.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
+
+            # Compute projection to each axis
+            in_plane_coord_1_mm = np.sum(in_plane_mm * axis_1_repeated, axis=1, keepdims=True)
+            in_plane_coord_2_mm = np.sum(in_plane_mm * axis_2_repeated, axis=1, keepdims=True)
+
+            # Concatenate
+            in_plane_mm = np.squeeze(np.array([in_plane_coord_1_mm, in_plane_coord_2_mm]).transpose(), axis=0)
+
+        # Post process output
         if flatten_output:
             in_plane_mm = in_plane_mm.flatten()
             out_plane_mm = out_plane_mm.flatten()
-
         return in_plane_mm, out_plane_mm
 
     def get_elastic_affine_diff_mm(self, uv_pix):
@@ -274,85 +303,109 @@ class FitPlaneElastic:
         xyz_elastic = self.get_xyz_from_uv(uv_pix)
         xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
-    
-    def get_xyz_points_positions_distance_metrics(self, uv_pix, xyz_mm, mean=True):
-        """ 
-        uv_pix: coordinates in pixels, array shape (2,n)
-        xyz_mm: coordinates in mm, array shape (3,n)
-        mean: if True, average over all points. If False, return individual error per point
-        Returns in plane and out of plane distances between mapped uv points and corresponding xyz points.
-        """
-        # Input check
-        uv_pix = np.array(uv_pix)
-        xyz_mm = np.array(xyz_mm)
-        assert uv_pix.shape[0] == xyz_mm.shape[0], "Mismatch in number of UV and XYZ points"
 
-        uv_to_xyz = np.squeeze(np.array([self.get_xyz_from_uv(p) for p in uv_pix]))
-        # Error vector
-        error_xyz_mm = xyz_mm - uv_to_xyz
-        normal = self.norm.reshape(1, -1) 
-        normal_repeated = np.tile(normal, (xyz_mm.shape[0], 1))
-
-        # Project error on normal direction
-        error_xyz_projected_on_normal_mm = np.sum(error_xyz_mm * normal_repeated, axis=1, keepdims=True) * normal_repeated
-        # Out of plane error is in direction of the normal
-        out_plane_error_mm = np.linalg.norm(error_xyz_projected_on_normal_mm, axis=1)
-
-        # Overall error
-        all_error_mm = np.linalg.norm(error_xyz_mm, axis=1)
-        in_plane_error_mm = np.sqrt(all_error_mm**2 - out_plane_error_mm**2)
-
-        if mean:
-            return np.mean(in_plane_error_mm), np.mean(out_plane_error_mm)
-        else:
-            return in_plane_error_mm, out_plane_error_mm
-
-    def plot_explore_anchor_points_fit_quality(self, figure_title="", use_elastic_fit=True):
+    def plot_explore_anchor_points_fit_quality(
+            self, figure_title="", coordinate_system='physical', use_elastic_fit=True):
         """
             Plot how well the plane fit matches anchor points
 
             Args:
                 figure_title: figure title if exists.
+                coordinate_system: can be 'physical' (default) or 'fit'. If using physical, will plot errors in XY and
+                    XZ coordinates. If using fit, will plot errors in in_plane and out_plane.
                 use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
         """
 
-        # Convert UV points to XYZ
+        # Capture anchor points raw and fit
         if use_elastic_fit:
             plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
         else:
             plane_fit_xyz_mm = np.array([self.get_xyz_from_uv_affine(t) for t in self.anchor_points_uv_pix]).squeeze()
 
-        # Set up  figure
-        fig, axes = plt.subplots(1, 2, figsize=(4.5 *2, 4.5), constrained_layout=True)
+        # Split coordinates to in plane and out of plane
+        if coordinate_system == 'physical':
+            plane_fit_xyz_mm = plane_fit_xyz_mm
+            anchor_points_xyz_mm = self.anchor_points_xyz_mm
+            normal_axis = [0, 0, 1] # Z
+            conj_axis = [0, 1, 0] # Y
+        else:
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(plane_fit_xyz_mm, output_coordinate_system='plane')
+            plane_fit_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-        # Plot XY Projection
-        axes[0].scatter(
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(self.anchor_points_xyz_mm, output_coordinate_system='plane')
+            anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
+
+            normal_axis = self.normal()
+            conj_axis = -np.cross(np.array([1,0,0]), normal_axis)  # Conj
+
+        # Set up  figure
+        fig, axes = plt.subplots(1, 4, figsize=(4.5 * 4, 4.5), constrained_layout=True)
+
+        # Plot XY/In plane Projection
+        plt.subplot(1, 4, 1)
+        plt.scatter(
             plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 1], label="Anchor Points (With Fit)")
-        axes[0].scatter(
-            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 1],
+        plt.scatter(
+            anchor_points_xyz_mm[:, 0], anchor_points_xyz_mm[:, 1],
             label="Anchor Points (Raw)", marker='^')
-        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
-            axes[0].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
-        axes[0].set_xlabel("X [mm]")
-        axes[0].set_ylabel("Y [mm]")
-        axes[0].grid(True)
-        axes[0].legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
-        axes[0].set_title("XY Projection of Anchor Points\n", fontsize=14)
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
+            plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[1], ap_xyz[1]], c='k')
+        if coordinate_system == 'physical':
+            plt.xlabel("X [mm]")
+            plt.ylabel("Y [mm]")
+            plt.title("XY Projection of Anchor Points\n", fontsize=14)
+        else:
+            normal_axis
+            plt.xlabel("X [mm]\n[1, 0, 0]")
+            plt.ylabel(f"Conj Axis [mm]\n[{conj_axis[0]:.2f}, {conj_axis[1]:.2f}, {conj_axis[2]:.2f}]")
+            plt.title("In Plane Projection of Anchor Points\n", fontsize=14)
+        plt.grid(True)
+        plt.legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
+
 
         # Plot XZ Projection
-        axes[1].scatter(
+        plt.subplot(1, 4, 2)
+        plt.scatter(
             plane_fit_xyz_mm[:, 0], plane_fit_xyz_mm[:, 2], label="Anchor Points (With Fit)")
-        axes[1].scatter(
-            self.anchor_points_xyz_mm[:, 0], self.anchor_points_xyz_mm[:, 2],
+        plt.scatter(
+            anchor_points_xyz_mm[:, 0], anchor_points_xyz_mm[:, 2],
             label="Anchor Points (Raw)", marker='^')
-        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, self.anchor_points_xyz_mm):
-            axes[1].plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
-        axes[1].set_xlabel("X [mm]")
-        axes[1].set_ylabel("Z [mm]")
-        axes[1].grid(True)
-        axes[1].set_title("XZ Projection of Anchor Points", fontsize=14)
+        for pf_xyz, ap_xyz in zip(plane_fit_xyz_mm, anchor_points_xyz_mm):
+            plt.plot([pf_xyz[0], ap_xyz[0]], [pf_xyz[2], ap_xyz[2]], c='k')
+        if coordinate_system == 'physical':
+            plt.xlabel("X [mm]")
+            plt.ylabel("Z [mm]")
+            plt.title("XZ Projection of Anchor Points\n", fontsize=14)
+        else:
+            plt.xlabel("X [mm]\n[1, 0, 0]")
+            plt.ylabel(f"Normal Axis [mm]\n[{normal_axis[0]:.2f}, {normal_axis[1]:.2f}, {normal_axis[2]:.2f}]")
+            plt.title("Out of Plane Projection of Anchor Points\n", fontsize=14)
+        plt.grid(True)
+
+        # Error Histogram
+        error_vec = plane_fit_xyz_mm - anchor_points_xyz_mm
+        in_plane_error = np.linalg.norm(error_vec[:,:2], axis=1)
+        out_plane_error = np.squeeze(np.abs(error_vec[:, 2]))
+
+        plt.subplot(1, 4, 3)
+        plt.hist(in_plane_error*1000, bins=10, color='teal', alpha=0.7)
+        if coordinate_system == 'physical':
+            plt.xlabel('XY Error [um]')
+            plt.title(f'Histogram XY Errors\n(mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+        else:
+            plt.xlabel('In Plane Error [um]')
+            plt.title(f'Histogram In-Plane Errors\n(mean={np.mean(in_plane_error*1000):.1f}um)', fontsize=14)
+        plt.ylabel('Frequency')
+
+        plt.subplot(1, 4, 4)
+        plt.hist(out_plane_error * 1000, bins=10, color='teal', alpha=0.7)
+        if coordinate_system == 'physical':
+            plt.xlabel('Z Error [um]')
+            plt.title(f'Histogram Z Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+        else:
+            plt.xlabel('In Out-Plane Error [um]')
+            plt.title(f'Histogram Out-Plane Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
+        plt.ylabel('Frequency')
 
         fig.suptitle(figure_title, fontsize=14)
         plt.show()
-
-        
