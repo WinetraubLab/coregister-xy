@@ -13,25 +13,75 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 uv_to_xyz_elastic_interpolator=None, xyz_to_uv_elastic_interpolator=None):
+                 smoothing=0, print_inputs=False):
         """
         Initialize the FitPlaneElastic class.
 
         Args:
-            uv_to_xyz_elastic_interpolator: An RBFInterpolator object for forward mapping (uv -> xyz).
-            xyz_to_uv_elastic_interpolator: An RBFInterpolator object for reverse mapping (xyz -> uv).
-            anchor_points_uv_pix: Store anchor_points for future usage.
-            anchor_points_xyz_mm: Store anchor_points for future usage.
+            anchor_points_uv_pix: These are the positions of anchor points on the image (uv) as a numpy array of shape (n, 2).
+            anchor_points_xyz_mm: These are the same points in physical space (xyz) as a numpy array of shape (n, 3).
+            smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0.
+                Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
+            print_inputs: If True, print the inputs for debugging.
         """
-        self.uv_to_xyz_elastic_interpolator = uv_to_xyz_elastic_interpolator  # Forward interpolator (uv -> xyz)
-        self.xyz_to_uv_elastic_interpolator = xyz_to_uv_elastic_interpolator  # Inverse interpolator (xyz -> uv)
+
+        # Input validation
+        anchor_points_uv_pix = np.array(anchor_points_uv_pix)
+        anchor_points_xyz_mm = np.array(anchor_points_xyz_mm)
+        if anchor_points_uv_pix.shape[0] != anchor_points_xyz_mm.shape[0]:
+            raise ValueError(
+                "Number of points should be the same between anchor_points_uv_pix and anchor_points_xyz_mm")
+        if anchor_points_uv_pix.shape[1] != 2:
+            raise ValueError("anchor_points_uv_pix must have shape (n, 2)")
+        if anchor_points_xyz_mm.shape[1] != 3:
+            raise ValueError("anchor_points_xyz_mm must have shape (n, 3)")
+
+        # Print inputs for debugging
+        if print_inputs:
+            print("anchor_points_uv_pix:\n", anchor_points_uv_pix)
+            print("anchor_points_xyz_mm:\n", anchor_points_xyz_mm)
+
+        # Store anchor points
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
 
+        # Create forward interpolator (uv -> xyz)
+        self.uv_to_xyz_elastic_interpolator = RBFInterpolator(
+            anchor_points_uv_pix,  # 2D source points (uv)
+            anchor_points_xyz_mm,  # 3D target points (xyz)
+            kernel='thin_plate_spline',
+            neighbors=None,  # Use all points for interpolation
+            smoothing=smoothing
+        )
+
+        # Create inverse interpolator (xyz -> uv)
+        def create_inverse_interpolator():
+            # Random noisePrevent singularity
+            perturbed_anchor_points_xyz_mm = (
+                    anchor_points_xyz_mm +
+                    np.random.normal(scale=1e-12, size=anchor_points_xyz_mm.shape))
+
+            self.xyz_to_uv_elastic_interpolator = RBFInterpolator(
+                perturbed_anchor_points_xyz_mm[:, :2],  # Use only x and y for inverse (2D)
+                anchor_points_uv_pix,
+                kernel='thin_plate_spline',
+                neighbors=None,
+                smoothing=smoothing
+            )
+        create_inverse_interpolator()
+
+        # Check that  mapping works x = reverse(forward(x))
+        test_uv = self.get_uv_from_xyz(anchor_points_xyz_mm)
+        test_xyz = self.get_xyz_from_uv(test_uv)
+        distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
+        if np.any(distance_error_mm > 1e-3):  # Consistency under 1 micron is okay!
+            raise AssertionError(
+                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+            )
+
         # Fit a linear (affine) interpolator
-        if self.uv_to_xyz_elastic_interpolator is not None:
-            self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
-            self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
+        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
     
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
@@ -48,53 +98,7 @@ class FitPlaneElastic:
         Returns:
             A FitPlaneElastic object.
         """
-        # Input validation
-        anchor_points_uv_pix = np.array(anchor_points_uv_pix)
-        anchor_points_xyz_mm = np.array(anchor_points_xyz_mm)
-        if anchor_points_uv_pix.shape[0] != anchor_points_xyz_mm.shape[0]:
-            raise ValueError("Number of points should be the same between anchor_points_uv_pix and anchor_points_xyz_mm")
-        if anchor_points_uv_pix.shape[1] != 2:
-            raise ValueError("anchor_points_uv_pix must have shape (n, 2)")
-        if anchor_points_xyz_mm.shape[1] != 3:
-            raise ValueError("anchor_points_xyz_mm must have shape (n, 3)")
-
-        # Print inputs for debugging
-        if print_inputs:
-            print("anchor_points_uv_pix:\n", anchor_points_uv_pix)
-            print("anchor_points_xyz_mm:\n", anchor_points_xyz_mm)
-
-        # Create forward interpolator (uv -> xyz)
-        uv_to_xyz_elastic_interpolator = RBFInterpolator(
-            anchor_points_uv_pix,  # 2D source points (uv)
-            anchor_points_xyz_mm,  # 3D target points (xyz)
-            kernel='thin_plate_spline',  
-            neighbors=None,  # Use all points for interpolation
-            smoothing=smoothing
-        )
-
-        # Inverse mapping
-        # Prevent singularity
-        perturbed_anchor_points_xyz_mm = anchor_points_xyz_mm + np.random.normal(scale=1e-12, size=anchor_points_xyz_mm.shape)
-        
-        xyz_to_uv_elastic_interpolator = RBFInterpolator(
-            perturbed_anchor_points_xyz_mm[:,:2],  # Use only x and y for inverse (2D)
-            anchor_points_uv_pix,
-            kernel='thin_plate_spline', 
-            neighbors=None,
-            smoothing=smoothing
-        )
-
-        # Check that this mapping works x = reverse(forward(x))
-        test_uv = xyz_to_uv_elastic_interpolator(anchor_points_xyz_mm[:, :2])
-        test_xyz = uv_to_xyz_elastic_interpolator(test_uv)
-        distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
-        if np.any(distance_error_mm > 1e-3): # Consistency under 1 micron is okay!
-            raise AssertionError(
-                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
-            )
-
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, uv_to_xyz_elastic_interpolator,
-                   xyz_to_uv_elastic_interpolator)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm)
 
     def normal(self):
         """
