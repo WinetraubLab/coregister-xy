@@ -56,19 +56,23 @@ class FitPlaneElastic:
 
         # Create inverse interpolator (xyz -> uv)
         def create_inverse_interpolator():
-            # Random noisePrevent singularity
+            # Add random noise to prevent singularity
             perturbed_anchor_points_xyz_mm = (
                     anchor_points_xyz_mm +
                     np.random.normal(scale=1e-12, size=anchor_points_xyz_mm.shape))
 
-            self.xyz_to_uv_elastic_interpolator = RBFInterpolator(
-                perturbed_anchor_points_xyz_mm[:, :2],  # Use only x and y for inverse (2D)
+            # Since RBFInterpolator cannot map 3D -> 2D, we lower the dimensions by focusing on in plane vectors
+            in_plane_anchor_points_xyz_mm, _= self._split_vector_to_in_plane_and_out_plane(
+                perturbed_anchor_points_xyz_mm, output_coordinate_system='plane')
+
+            return RBFInterpolator(
+                in_plane_anchor_points_xyz_mm,
                 anchor_points_uv_pix,
                 kernel='thin_plate_spline',
                 neighbors=None,
                 smoothing=smoothing
             )
-        create_inverse_interpolator()
+        self.xyz_to_uv_elastic_interpolator = create_inverse_interpolator()
 
         # Check that  mapping works x = reverse(forward(x))
         test_uv = self.get_uv_from_xyz(anchor_points_xyz_mm)
@@ -168,9 +172,12 @@ class FitPlaneElastic:
         xyz_mm = np.array(xyz_mm)
         if xyz_mm.ndim == 1:
             xyz_mm = xyz_mm[np.newaxis, :]  # Add batch dimension for single point
+
         assert(xyz_mm.shape[1] == 3) # Make sure that shape of input is (n, 3)
 
-        return self.xyz_to_uv_elastic_interpolator(xyz_mm[:, :2])  # Use only x and y for inverse
+        # Since RBFInterpolator cannot map 3D -> 2D, we lower the dimensions by focusing on in plane vectors
+        in_plane_xyz_mm, _ = self._split_vector_to_in_plane_and_out_plane(xyz_mm, output_coordinate_system='plane')
+        return self.xyz_to_uv_elastic_interpolator(in_plane_xyz_mm)
     
     def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
         """
