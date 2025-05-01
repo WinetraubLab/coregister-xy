@@ -24,7 +24,7 @@ end
 x_start_mm = []; x_end_mm=[]; y_start_mm=[]; y_end_mm=[]; z_mm=[];
 for i=1:size(patternCenter_mm,1)
     [x_start_mm1, x_end_mm1, y_start_mm1, y_end_mm1, z_mm1] = ...
-        CreateFOVPattern(
+        CreateFOVPattern( ...
             patternCenter_mm(i,1), ... x
             patternCenter_mm(i,2)  ... y
         );
