@@ -13,7 +13,7 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 smoothing=0, print_inputs=False):
+                 smoothing=0, print_inputs=False, consistency_check = False):
         """
         Initialize the FitPlaneElastic class.
 
@@ -23,6 +23,7 @@ class FitPlaneElastic:
             smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0.
                 Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
             print_inputs: If True, print the inputs for debugging.
+            consistency_check: If True, will perform consistency checks.
         """
 
         # Input validation
@@ -74,14 +75,15 @@ class FitPlaneElastic:
             )
         self.xyz_to_uv_elastic_interpolator = create_inverse_interpolator()
 
-        # Check that  mapping works x = reverse(forward(x))
-        test_uv = self.get_uv_from_xyz(anchor_points_xyz_mm)
-        test_xyz = self.get_xyz_from_uv(test_uv)
-        distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
-        if np.any(distance_error_mm > 1e-3):  # Consistency under 1 micron is okay!
-            raise AssertionError(
-                "Inverse consistency check failed. Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
-            )
+        if consistency_check:
+            # Check that  mapping works x = reverse(forward(x))
+            test_uv = self.get_uv_from_xyz(anchor_points_xyz_mm)
+            test_xyz = self.get_xyz_from_uv(test_uv)
+            distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
+            if np.any(distance_error_mm > 1e-3):  # Consistency under 1 micron is okay!
+                raise AssertionError(
+                    f"Inverse consistency check failed (distance_error_mm={distance_error_mm*1e3:.0f}um). Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+                )
 
         # Fit a linear (affine) interpolator
         self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
