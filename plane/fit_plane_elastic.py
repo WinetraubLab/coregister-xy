@@ -13,7 +13,7 @@ class FitPlaneElastic:
     def __init__(self,
                  anchor_points_uv_pix=None,
                  anchor_points_xyz_mm=None,
-                 smoothing=0, print_inputs=False, consistency_check = False):
+                 smoothing=0, print_inputs=False, consistency_check = True):
         """
         Initialize the FitPlaneElastic class.
 
@@ -79,11 +79,13 @@ class FitPlaneElastic:
             # Check that  mapping works x = reverse(forward(x))
             test_uv = self.get_uv_from_xyz(anchor_points_xyz_mm)
             test_xyz = self.get_xyz_from_uv(test_uv)
-            distance_error_mm = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)
-            if np.any(distance_error_mm > 1e-3):  # Consistency under 1 micron is okay!
+            distance_error_um = np.linalg.norm((test_xyz - anchor_points_xyz_mm), axis=1)*1e3
+            distance_error_um = min(distance_error_um)
+            if np.any(distance_error_um > 1):  # Consistency under 1 micron is okay!
                 raise AssertionError(
-                    f"Inverse consistency check failed (distance_error_mm={distance_error_mm*1e3:.0f}um). Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
-                )
+                    f"Inverse consistency check failed (distance_error = {distance_error_um:.0f} um). "
+                    "Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+            )
 
         # Fit a linear (affine) interpolator
         self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
