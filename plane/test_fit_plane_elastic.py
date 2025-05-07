@@ -126,8 +126,6 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertAlmostEqual(out_p[0], -2)
         self.assertAlmostEqual(out_p[1], 2)
 
-
-
     def test_image_to_physical_translations_xy(self):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300], [100,300]] # pix
