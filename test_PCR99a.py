@@ -4,7 +4,7 @@ import unittest
 
 from PCR99a import sRt_from_N_points
 
-class TestFitPlaneElastic(unittest.TestCase):
+class TestPCR99a(unittest.TestCase):
 
     def setUp(self):
         np.random.seed(42)
