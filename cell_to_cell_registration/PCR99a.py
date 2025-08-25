@@ -158,6 +158,129 @@ def core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, t
 
     return (A, B)
 
+def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
+                 plane_inlier_thresh=5, z_dist_thresh=4,
+                 penalty_threshold=8, xy_translation_penalty_weight=1):
+    """
+    RANSAC round 2: plane-based inlier set refinement.
+    Params:
+        points_from_oct, points_from_hist: corresponding point pairs from initial PCR99 inlier selection.
+        n_iter: RANSAC iterations to perform.
+        plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
+            still considered an inlier during RANSAC iterations.
+        z_dist_thresh: threshold on the distance of points to the final plane. 
+            It defines which points are retained as the final inlier set.
+        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
+            before incurring a score penalty.
+        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+    Returns:
+        oct_points_final, hist_points_final: Arrays containing corresponding point pairs for selected inliers.
+    """
+
+    n = points_from_oct.shape[1]
+    best_plane_normal = None
+    best_plane_point = None
+    best_score = -np.inf
+
+    for _ in range(n_iter):
+        # Randomly select subset
+        subset_idx = np.random.choice(n, 3, replace=False)
+        A_subset = points_from_oct[:, subset_idx]
+
+        # Fit plane to A_subset
+        mean_subset = np.mean(A_subset, axis=1, keepdims=True)
+        A_centered_subset = A_subset - mean_subset
+
+        # SVD for plane normal (least variance direction)
+        _, _, V = np.linalg.svd(A_centered_subset.T, full_matrices=False)
+        plane_normal_candidate = V[:, -1].reshape(-1, 1)  # column vector
+
+        # Normalize plane normal
+        plane_normal_candidate /= np.linalg.norm(plane_normal_candidate)
+
+        # Distances from all points in A to this plane
+        vecs_to_plane = points_from_oct - mean_subset  
+        dists = np.abs(plane_normal_candidate.T @ vecs_to_plane).flatten()
+
+        # Count inliers within threshold
+        inliers_candidate = np.where(dists <= plane_inlier_thresh)[0]
+        num_inliers_candidate = len(inliers_candidate)
+
+        # Penalize large xy translations
+        A_sub = points_from_oct[:, inliers_candidate]
+        B_sub = points_from_hist[:, inliers_candidate]
+
+        if A_sub.shape[1] < 1:
+            continue
+
+        s_temp, R_temp, t_temp = sRt_from_N_points(A_sub, B_sub)
+
+        xy_trans = np.linalg.norm(t_temp[:2])
+
+        score = num_inliers_candidate - xy_translation_penalty_weight * max(0, xy_trans - penalty_threshold)
+
+        # Update best if score improved
+        if score > best_score:
+            best_score = score
+            best_plane_normal = plane_normal_candidate
+            best_plane_point = mean_subset
+
+    best_plane_normal = best_plane_normal / np.linalg.norm(best_plane_normal)
+
+    # Z distance to the plane (signed projection)
+    vecs_to_plane = points_from_oct - best_plane_point.reshape(-1, 1)  # shape (3×N)
+    z_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
+    valid_mask = z_dists <= z_dist_thresh
+
+    final_inliers = np.where(valid_mask)[0]
+    A_final = points_from_oct[:, final_inliers]
+    B_final = points_from_hist[:, final_inliers]
+
+    return A_final, B_final
+
+def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
+    """
+    Visualize inlier point pairs.
+    """
+    x_gt, y_gt, z_gt = points_from_oct[0, :], points_from_oct[1, :], points_from_oct[2, :]
+    x_est, y_est, z_est = points_from_hist[0, :], points_from_hist[1, :], points_from_hist[2, :]
+
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+
+    # XY subplot
+    axes[0].scatter(x_gt, y_gt, s=30, c='g', label='OCT')
+    axes[0].scatter(x_est, y_est, s=30, c='r', label="Hist")
+    for i in range(len(x_gt)):
+        axes[0].plot([x_gt[i], x_est[i]], [y_gt[i], y_est[i]], 'k-', linewidth=0.5)
+    axes[0].set_xlabel('X'); axes[0].set_ylabel('Y')
+    axes[0].set_title('XY')
+    axes[0].grid(True)
+
+    # XZ subplot
+    axes[1].scatter(x_gt, z_gt, s=30, c='g', label='OCT')
+    axes[1].scatter(x_est, z_est, s=30, c='r', label="Hist")
+    for i in range(len(x_gt)):
+        axes[1].plot([x_gt[i], x_est[i]], [z_gt[i], z_est[i]], 'k-', linewidth=0.5)
+    axes[1].set_xlabel('X'); axes[1].set_ylabel('Z')
+    axes[1].set_title('XZ')
+    axes[1].grid(True)
+
+    # YZ subplot
+    axes[2].scatter(y_gt, z_gt, s=30, c='g', label='OCT')
+    axes[2].scatter(y_est, z_est, s=30, c='r', label="Hist")
+    for i in range(len(x_gt)):
+        axes[2].plot([y_gt[i], y_est[i]], [z_gt[i], z_est[i]], 'k-', linewidth=0.5)
+    axes[2].set_xlabel('Y'); axes[2].set_ylabel('Z')
+    axes[2].set_title('YZ')
+    axes[2].grid(True)
+
+    axes[2].legend()
+    plt.suptitle(title)
+    plt.show()
+    
+    if save:
+        plt.savefig(f"{title}.png")
+
 def run_PCR99a():
     # 1. Pairwise squared distance, log ratio matrix
 
