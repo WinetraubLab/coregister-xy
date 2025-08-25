@@ -2,7 +2,7 @@ import numpy as np
 import numpy.testing as npt
 import unittest
 
-from PCR99a import sRt_from_N_points, _score_correspondences
+from PCR99a import sRt_from_N_points, _score_correspondences, core_PCR99a
 
 class TestPCR99a(unittest.TestCase):
 
@@ -50,3 +50,29 @@ class TestPCR99a(unittest.TestCase):
         min_costs = _score_correspondences(log_ratios, 0.03)
         npt.assert_allclose(min_costs, vals, rtol=1e-7, atol=1e-7)
 
+    def test_pcr_core(self):
+        P = np.array([[ 2.14085717,  1.71839018,  1.87839273,  1.18722237,  1.44944814],
+        [-1.93833432, -1.75652702, -1.66191823, -1.5149545 , -1.30236109],
+        [ 3.6142523 ,  4.15094862,  3.10151576,  3.4008531 ,  3.27171761]])
+
+        Q = self.s * (self.R @ P) + self.t.reshape((3,1))
+
+        thr1 = 0.03
+        thr2 = 5
+        sigma = 2
+
+        d_gt = np.sum((Q[:, :, None] - Q[:, None, :])**2, axis=0)  
+        d_est = np.sum((P[:, :, None] - P[:, None, :])**2, axis=0) 
+        log_ratio_mat = 0.5 * np.log(d_est / d_gt)
+
+        min_costs = _score_correspondences(log_ratio_mat, thr1)
+        sort_idx = np.argsort(min_costs)
+
+        A, B = core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
+        gt_A = np.array([
+            [ 2.14085717,  1.71839018,  1.87839273,  1.18722237,  1.44944814],
+            [-1.93833432, -1.75652702, -1.66191823, -1.5149545,  -1.30236109],
+            [ 3.6142523,   4.15094862,  3.10151576,  3.4008531 ,  3.27171761]])
+        gt_B = self.s * (self.R @ gt_A) + self.t.reshape((3,1))
+        npt.assert_almost_equal(A, gt_A, decimal=3)
+        npt.assert_almost_equal(B, gt_B, decimal=3)

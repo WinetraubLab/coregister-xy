@@ -151,12 +151,12 @@ def core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, t
 
     if len(idx_inliers) == 0:
         print("No inliers")
-        return np.nan, np.nan, np.nan, []
+        return np.array([]), np.array([])
 
     A = xyz_gt[:,idx_inliers]
     B = xyz_est[:,idx_inliers]
 
-    return A, B
+    return (A, B)
 
 def run_PCR99a():
     # 1. Pairwise squared distance, log ratio matrix
