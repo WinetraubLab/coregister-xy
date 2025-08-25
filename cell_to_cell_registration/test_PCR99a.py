@@ -19,7 +19,6 @@ class TestPCR99a(unittest.TestCase):
             [0, np.cos(alpha), -np.sin(alpha)],
             [0, np.sin(alpha),  np.cos(alpha)]
         ])
-        # self.t = np.array([[1], [-2], [3]])
         self.t = np.array([1,-2,3])
         self.Q = self.s * (self.R @ self.P) + self.t.reshape((3,1))
     
@@ -51,9 +50,10 @@ class TestPCR99a(unittest.TestCase):
         npt.assert_allclose(min_costs, vals, rtol=1e-7, atol=1e-7)
 
     def test_pcr_core(self):
-        P = np.array([[ 2.14085717,  1.71839018,  1.87839273,  1.18722237,  1.44944814],
-        [-1.93833432, -1.75652702, -1.66191823, -1.5149545 , -1.30236109],
-        [ 3.6142523 ,  4.15094862,  3.10151576,  3.4008531 ,  3.27171761]])
+        P = np.array([
+            [ 2.14,  1.71,  1.87,  1.18,  1.44],
+            [-1.93, -1.75, -1.66, -1.51, -1.30],
+            [ 3.61,  4.15,  3.10,  3.40,  3.27]])
 
         Q = self.s * (self.R @ P) + self.t.reshape((3,1))
 
@@ -69,10 +69,5 @@ class TestPCR99a(unittest.TestCase):
         sort_idx = np.argsort(min_costs)
 
         A, B = core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
-        gt_A = np.array([
-            [ 2.14085717,  1.71839018,  1.87839273,  1.18722237,  1.44944814],
-            [-1.93833432, -1.75652702, -1.66191823, -1.5149545,  -1.30236109],
-            [ 3.6142523,   4.15094862,  3.10151576,  3.4008531 ,  3.27171761]])
-        gt_B = self.s * (self.R @ gt_A) + self.t.reshape((3,1))
-        npt.assert_almost_equal(A, gt_A, decimal=3)
-        npt.assert_almost_equal(B, gt_B, decimal=3)
+        npt.assert_almost_equal(A, P, decimal=3)
+        npt.assert_almost_equal(B, Q, decimal=3)
