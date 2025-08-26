@@ -1,6 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import itertools
+from scipy.linalg import lstsq
+
+def compute_affine(A, B):
+    """
+    Compute affine transform (3x4) that maps 3D points A to B. Points are shape (3,n).
+    Returns:
+    M : array of shape (3, 4). Affine transform matrix such that [x,y,z,1] @ M.T ≈ [x',y',z']
+    """
+    N = A.shape[1]
+    if B.shape[1] != N:
+        raise ValueError("A and B must have the same number of points")
+
+    A_h = np.hstack([A.T, np.ones((N,1))])   # (N x 4)
+    X, _, _, _ = lstsq(A_h, B.T)  # (4 x 3)
+    return X.T   # (3 x 4)
 
 def sRt_from_N_points(A, B):
     """
@@ -156,7 +171,7 @@ def core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, t
     A = xyz_gt[:,idx_inliers]
     B = xyz_est[:,idx_inliers]
 
-    return (A, B)
+    return A, B
 
 def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
                  plane_inlier_thresh=5, z_dist_thresh=4,
@@ -281,10 +296,32 @@ def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
     if save:
         plt.savefig(f"{title}.png")
 
-def run_PCR99a():
+def calculate_affine_alignment(xyz_gt, xyz_est, sigma, thr1, thr2, n_hypo):
+    """
+    Run full alignment algorithm. 
+    Returns:
+    T: transformation matrix such that T @ A = B, where all z coordinates of A are set to 1.
+    """
     # 1. Pairwise squared distance, log ratio matrix
+    d_gt = np.sum((xyz_gt[:, :, None] - xyz_gt[:, None, :])**2, axis=0)   # (n, n)
+    d_est = np.sum((xyz_est[:, :, None] - xyz_est[:, None, :])**2, axis=0) # (n, n)
+    log_ratio_mat = 0.5 * np.log(d_est / d_gt)
 
     # 2. Score correspondence pairs
+    min_costs = _score_correspondences(log_ratio_mat, thr1)
+    sort_idx = np.argsort(min_costs)
+    xyz_est = xyz_est[:, sort_idx]
+    xyz_gt  = xyz_gt[:, sort_idx]
 
-    # 3. RANSAC round 1
-    pass
+    # 3. pcr
+    A, B = core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2)
+
+    # 4. plane fit ransac
+    A, B = plane_ransac(A, B)
+
+    # 5. Final transform
+    B_temp = B.copy()
+    B_temp[2, :] = 1
+
+    T = compute_affine(A, B_temp)
+    return T
