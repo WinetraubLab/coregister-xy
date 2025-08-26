@@ -29,7 +29,7 @@ def sRt_from_N_points(A, B):
 def _score_correspondences(log_ratio_mat, thr1):
         """
         Step 2 of PCR99a.
-        Args:
+        Inputs:
             log_ratio_mat: (n, n) matrix
             thr1: clipping threshold
 
@@ -252,6 +252,11 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
     """
     Visualize inlier point pairs.
+    Inputs:
+        points_from_oct: reference point set
+        points_from_hist: candidate set to align
+        title: title of the graph
+        save: whether to save image to filesystem as {title}.png
     """
     x_gt, y_gt, z_gt = points_from_oct[0, :], points_from_oct[1, :], points_from_oct[2, :]
     x_est, y_est, z_est = points_from_hist[0, :], points_from_hist[1, :], points_from_hist[2, :]
