@@ -56,9 +56,20 @@ def _score_correspondences(log_ratio_mat, thr1):
             min_costs[i] = np.nanmin(costs)
         return min_costs
 
-def core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2):
+def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2):
     """
     This function contains the Python adaptation of the original PCR99a algorithm.
+    Robustly estimate correspondences between two 3D point sets by generating hypotheses 
+    from point triplets.
+    Inputs:
+        xyz_gt: array (3,n) of reference points.
+        xyz_est: array (3,n) of points to match to reference points.
+        log_ratio_mat: (n,n) precomputed log-ratio matrix between points, used for prescreening triplets.
+        sort_idx: array (n,) Indices giving the sorted order of points (used to map triplets to original indices).
+        n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
+        thr1: Log-ratio consistency threshold for prescreening candidate triplets.
+        sigma: Noise scaling factor used in the inlier distance threshold.
+        thr2: Distance threshold for final inliers.
     Returns:
         A, B: arrays of corresponding inlier point pairs.
     """
