@@ -2,14 +2,15 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
     """
     Run full alignment algorithm. 
     Inputs:
-        xyz_oct: Reference point set from 3D OCT segmentations
-        xyz_hist: Candidate set to align, from 2D histology image
+        xyz_oct: Reference point set from 3D OCT segmentations, in pixels. (3,n)
+        xyz_hist: Candidate set to align, from 2D histology image, in pixels. (3,n)
         n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
         thr1: Log-ratio consistency threshold for prescreening candidate triplets.
         sigma: Noise scaling factor used in the inlier distance threshold.
-        thr2: Distance threshold for final inliers.
+        thr2: Distance threshold for final inliers, in pixels.
     Returns:
-    T: transformation matrix such that T @ A = B, where all z coordinates of A are set to 1.
+    T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
+    and the Z coordinate of point subset A is set to 1.
     """
     # 1. Pairwise squared distance, log ratio matrix
     d_gt = np.sum((xyz_oct[:, :, None] - xyz_oct[:, None, :])**2, axis=0)   # (n, n)
