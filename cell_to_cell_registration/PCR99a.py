@@ -204,7 +204,7 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
         # SVD for plane normal (least variance direction)
         _, _, V = np.linalg.svd(A_centered_subset.T, full_matrices=False)
-        plane_normal_candidate = V[:, -1].reshape(-1, 1)  # column vector
+        plane_normal_candidate = V.T[:, -1].reshape(-1, 1) 
 
         # Normalize plane normal
         plane_normal_candidate /= np.linalg.norm(plane_normal_candidate)

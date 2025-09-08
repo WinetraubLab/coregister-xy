@@ -72,6 +72,18 @@ class TestPCR99a(unittest.TestCase):
         npt.assert_almost_equal(A, P, decimal=3)
         npt.assert_almost_equal(B, Q, decimal=3)
 
+    def test_plane_ransac(self):
+        np.random.seed(42)
+        P = np.array([
+            [ 2.14,  1.71,  1.87,  1.18,  1.44, 5.23, -9.52],
+            [-1.93, -1.75, -1.66, -1.51, -1.30, 7.34, 2.13],
+            [ 3.61,  4.15,  3.10,  3.40,  3.27, -8.99, -3.21],
+            ])
+
+        Q = self.s * (self.R @ P) + self.t.reshape((3,1))
+        a,b = plane_ransac(P,Q)
+        self.assertAlmostEqual(a.shape[1], 7)
+
     def test_ransac2(self):
         P = np.array([
             [ 2.14,  1.71,  1.87,  1.18,  1.44],
