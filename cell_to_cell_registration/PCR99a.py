@@ -297,6 +297,30 @@ def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
     if save:
         plt.savefig(f"{title}.png")
 
+def _compute_affine(A, B):
+    """
+    Computes the 3D affine transformation matrix T (3x4) that maps points A to points B.
+    Inputs:
+        A: (3,N) array of source 3D points.
+        B: (3,N) array of destination 3D points.
+    Returns:
+        T: 4x4 affine transformation matrix.
+    """
+    A = np.asarray(A).T
+    B = np.asarray(B).T
+
+    if A.shape[0] < 3:
+        raise ValueError("At least 3 point pairs are required for an affine transformation.")
+
+    A_h = np.hstack([A, np.ones((A.shape[0], 1))])  # Nx4
+
+    # Solve for the transformation matrix using least squares: A_h * T.T ≈ B_temp
+    T, residuals, rank, s = np.linalg.lstsq(A_h, B, rcond=None)  # T is 4x3
+    T = T.T  # 3x4
+    T_4x4 = np.vstack([T, [0, 0, 0, 1]])
+
+    return T_4x4
+
 def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5):
     """
     Run full alignment algorithm. 

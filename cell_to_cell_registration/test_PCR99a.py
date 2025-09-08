@@ -2,7 +2,7 @@ import numpy as np
 import numpy.testing as npt
 import unittest
 
-from PCR99a import sRt_from_N_points, _score_correspondences, core_PCR99a, plane_ransac, compute_affine
+from PCR99a import sRt_from_N_points, _score_correspondences, _core_PCR99a, plane_ransac, _compute_affine
 
 class TestPCR99a(unittest.TestCase):
 
@@ -68,7 +68,7 @@ class TestPCR99a(unittest.TestCase):
         min_costs = _score_correspondences(log_ratio_mat, thr1)
         sort_idx = np.argsort(min_costs)
 
-        A, B = core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
+        A, B = _core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
         npt.assert_almost_equal(A, P, decimal=3)
         npt.assert_almost_equal(B, Q, decimal=3)
 
@@ -97,8 +97,8 @@ class TestPCR99a(unittest.TestCase):
         npt.assert_array_less(A, 20)
 
     def test_affine(self):
-        T = compute_affine(self.P, self.Q)
+        T = _compute_affine(self.P, self.Q)
         pts = np.vstack([self.P, np.ones((1, self.P.shape[1]))])
-        P_transformed = T @ pts
+        P_transformed = (T @ pts)[:3]
         npt.assert_allclose(self.Q, P_transformed)
         
