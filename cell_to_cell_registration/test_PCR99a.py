@@ -2,7 +2,7 @@ import numpy as np
 import numpy.testing as npt
 import unittest
 
-from PCR99a import sRt_from_N_points, _score_correspondences, core_PCR99a, plane_ransac
+from PCR99a import sRt_from_N_points, _score_correspondences, _core_PCR99a, plane_ransac, _compute_affine, calculate_affine_alignment
 
 class TestPCR99a(unittest.TestCase):
 
@@ -68,30 +68,40 @@ class TestPCR99a(unittest.TestCase):
         min_costs = _score_correspondences(log_ratio_mat, thr1)
         sort_idx = np.argsort(min_costs)
 
-        A, B = core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
+        A, B = _core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
         npt.assert_almost_equal(A, P, decimal=3)
         npt.assert_almost_equal(B, Q, decimal=3)
 
-    def test_ransac2(self):
+    def test_plane_ransac(self):
+        np.random.seed(42)
         P = np.array([
-            [ 2.14,  1.71,  1.87,  1.18,  1.44],
-            [-1.93, -1.75, -1.66, -1.51, -1.30],
-            [ 3.61,  4.15,  3.10,  3.40,  3.27]])
+            [ 2.14,  1.71,  1.87,  1.18,  1.44, 5.23, -9.52],
+            [-1.93, -1.75, -1.66, -1.51, -1.30, 7.34, 2.13],
+            [ 3.61,  4.15,  3.10,  3.40,  3.27, -8.99, -3.21],
+            ])
+
         Q = self.s * (self.R @ P) + self.t.reshape((3,1))
+        a,b = plane_ransac(P,Q)
+        self.assertAlmostEqual(a.shape[1], 7)
 
-        random_P = np.array([
-            [215,  -67, 134, 489, -321, 402],
-            [-112,  45, 378, -250, 190, -77],
-            [59, 280, -341, 102, 410, -88]
-        ])
-        random_Q = np.array([
-            [-310,  122, -150,  502, -280,  330],
-            [ 200, -120,  420, -300,  250,  -40],
-            [ -40,  350, -280,  140,  450,  -60]
-        ])
-        P1 = np.hstack([P[:,:5], random_P])
-        Q1 = np.hstack([Q[:,:5], random_Q])
-        A, B = plane_ransac(P1,Q1,n_iter=200)
+    def test_affine(self):
+        T = _compute_affine(self.P, self.Q)
+        pts = np.vstack([self.P, np.ones((1, self.P.shape[1]))])
+        P_transformed = (T @ pts)[:3]
+        npt.assert_allclose(self.Q, P_transformed)
 
-        self.assertAlmostEqual(A.shape[1], 5)
-        npt.assert_array_less(A, 20)
+    def test_all(self):
+        xyz_oct = np.loadtxt('example_data/oct_points.csv', delimiter=',')
+        xyz_hist = np.loadtxt('example_data/fl_points.csv', delimiter=',')
+        T, (s,R,t) = calculate_affine_alignment(xyz_oct, xyz_hist, plane_inlier_thresh=5, z_dist_thresh=5,
+                 penalty_threshold=8, xy_translation_penalty_weight=1)
+
+        R_matlab = np.array([
+        [1.0000,    0.0018,   -0.0067],
+        [-0.0017,    1.0000 ,   0.0094],
+        [0.0067,   -0.0094 ,   0.9999]
+        ])
+        npt.assert_allclose(R, R_matlab, atol=0.01)
+        npt.assert_allclose(s-1.0049, 0, atol=0.01)
+        npt.assert_allclose(t - [-5, 8.3, -53], 0, atol=3)
+        

@@ -204,7 +204,7 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
         # SVD for plane normal (least variance direction)
         _, _, V = np.linalg.svd(A_centered_subset.T, full_matrices=False)
-        plane_normal_candidate = V[:, -1].reshape(-1, 1)  # column vector
+        plane_normal_candidate = V.T[:, -1].reshape(-1, 1) 
 
         # Normalize plane normal
         plane_normal_candidate /= np.linalg.norm(plane_normal_candidate)
@@ -297,10 +297,82 @@ def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
     if save:
         plt.savefig(f"{title}.png")
 
-def run_PCR99a():
+def _compute_affine(A, B):
+    """
+    Computes the 3D affine transformation matrix T (3x4) that maps points A to points B.
+    Inputs:
+        A: (3,N) array of source 3D points.
+        B: (3,N) array of destination 3D points.
+    Returns:
+        T: 4x4 affine transformation matrix.
+    """
+    A = np.asarray(A).T
+    B = np.asarray(B).T
+
+    if A.shape[0] < 3:
+        raise ValueError("At least 3 point pairs are required for an affine transformation.")
+
+    A_h = np.hstack([A, np.ones((A.shape[0], 1))])  # Nx4
+
+    # Solve for the transformation matrix using least squares: A_h * T.T ≈ B_temp
+    T, residuals, rank, s = np.linalg.lstsq(A_h, B, rcond=None)  # T is 4x3
+    T = T.T  # 3x4
+    T_4x4 = np.vstack([T, [0, 0, 0, 1]])
+
+    return T_4x4
+
+def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
+                 penalty_threshold=8, xy_translation_penalty_weight=1):
+    """
+    Run full alignment algorithm. 
+    Inputs:
+        xyz_oct: Reference point set from 3D OCT segmentations, in pixels. (3,n)
+        xyz_hist: Candidate set to align, from 2D histology image, in pixels. (3,n)
+        n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
+        thr1: Log-ratio consistency threshold for prescreening candidate triplets.
+        sigma: Noise scaling factor used in the inlier distance threshold.
+        thr2: Distance threshold for final inliers, in pixels.
+        n_iter: RANSAC iterations to perform.
+        plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
+            still considered an inlier during RANSAC iterations.
+        z_dist_thresh: threshold on the distance of points to the final plane. 
+            It defines which points are retained as the final inlier set.
+        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
+            before incurring a score penalty.
+        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+    
+    Returns:
+    T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
+    and the Z coordinate of point subset A is set to 1.
+    """
     # 1. Pairwise squared distance, log ratio matrix
+    epsilon = 1e-10
+    d_gt = np.sum((xyz_oct[:, :, None] - xyz_oct[:, None, :])**2, axis=0)  # (n, n)
+    d_est = np.sum((xyz_hist[:, :, None] - xyz_hist[:, None, :])**2, axis=0)  # (n, n)
+
+    # Clamp very small distances 
+    d_gt_safe = np.maximum(d_gt, epsilon)
+    d_est_safe = np.maximum(d_est, epsilon)
+
+    log_ratio_mat = 0.5 * np.log(d_est_safe / d_gt_safe)
 
     # 2. Score correspondence pairs
+    min_costs = _score_correspondences(log_ratio_mat, thr1)
+    sort_idx = np.argsort(min_costs)
+    xyz_hist = xyz_hist[:, sort_idx]
+    xyz_oct  = xyz_oct[:, sort_idx]
 
-    # 3. RANSAC round 1
-    pass
+    # 3. pcr
+    A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2)
+
+    # 4. plane fit ransac
+    A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, z_dist_thresh,
+                 penalty_threshold, xy_translation_penalty_weight)
+
+    # 5. Final transform
+    B_temp = B.copy()
+    B_temp[2, :] = 1
+
+    T = _compute_affine(A, B_temp)
+    s,R,t = sRt_from_N_points(A,B_temp)
+    return T, (s,R,t)
