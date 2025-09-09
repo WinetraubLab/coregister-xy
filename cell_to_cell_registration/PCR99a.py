@@ -321,7 +321,7 @@ def _compute_affine(A, B):
 
     return T_4x4
 
-def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5, plane_inlier_thresh=5, z_dist_thresh=4,
+def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
                  penalty_threshold=8, xy_translation_penalty_weight=1):
     """
     Run full alignment algorithm. 
@@ -332,6 +332,15 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
         thr1: Log-ratio consistency threshold for prescreening candidate triplets.
         sigma: Noise scaling factor used in the inlier distance threshold.
         thr2: Distance threshold for final inliers, in pixels.
+        n_iter: RANSAC iterations to perform.
+        plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
+            still considered an inlier during RANSAC iterations.
+        z_dist_thresh: threshold on the distance of points to the final plane. 
+            It defines which points are retained as the final inlier set.
+        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
+            before incurring a score penalty.
+        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+    
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
     and the Z coordinate of point subset A is set to 1.
@@ -357,7 +366,7 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
     A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2)
 
     # 4. plane fit ransac
-    A, B = plane_ransac(A, B, plane_inlier_thresh, z_dist_thresh,
+    A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, z_dist_thresh,
                  penalty_threshold, xy_translation_penalty_weight)
 
     # 5. Final transform
