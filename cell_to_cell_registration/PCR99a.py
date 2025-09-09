@@ -321,7 +321,8 @@ def _compute_affine(A, B):
 
     return T_4x4
 
-def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5):
+def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5, plane_inlier_thresh=5, z_dist_thresh=4,
+                 penalty_threshold=8, xy_translation_penalty_weight=1):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -336,9 +337,15 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
     and the Z coordinate of point subset A is set to 1.
     """
     # 1. Pairwise squared distance, log ratio matrix
-    d_gt = np.sum((xyz_oct[:, :, None] - xyz_oct[:, None, :])**2, axis=0)   # (n, n)
-    d_est = np.sum((xyz_hist[:, :, None] - xyz_hist[:, None, :])**2, axis=0) # (n, n)
-    log_ratio_mat = 0.5 * np.log(d_est / d_gt)
+    epsilon = 1e-10
+    d_gt = np.sum((xyz_oct[:, :, None] - xyz_oct[:, None, :])**2, axis=0)  # (n, n)
+    d_est = np.sum((xyz_hist[:, :, None] - xyz_hist[:, None, :])**2, axis=0)  # (n, n)
+
+    # Clamp very small distances 
+    d_gt_safe = np.maximum(d_gt, epsilon)
+    d_est_safe = np.maximum(d_est, epsilon)
+
+    log_ratio_mat = 0.5 * np.log(d_est_safe / d_gt_safe)
 
     # 2. Score correspondence pairs
     min_costs = _score_correspondences(log_ratio_mat, thr1)
@@ -350,11 +357,13 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
     A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2)
 
     # 4. plane fit ransac
-    A, B = plane_ransac(A, B)
+    A, B = plane_ransac(A, B, plane_inlier_thresh, z_dist_thresh,
+                 penalty_threshold, xy_translation_penalty_weight)
 
     # 5. Final transform
     B_temp = B.copy()
     B_temp[2, :] = 1
 
     T = _compute_affine(A, B_temp)
-    return T
+    s,R,t = sRt_from_N_points(A,B_temp)
+    return T, (s,R,t)
