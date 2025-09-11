@@ -141,8 +141,6 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
             ):
                 break
 
-    print("Best hypothesis inliers:", max_max_nInliers, "/", n)
-
     # --- Final result ---
     if len(idx_inliers) == 0:
         print("No inliers found.")
