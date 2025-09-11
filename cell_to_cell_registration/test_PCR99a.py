@@ -96,12 +96,17 @@ class TestPCR99a(unittest.TestCase):
         T, (s,R,t) = calculate_affine_alignment(xyz_oct, xyz_hist, plane_inlier_thresh=5, z_dist_thresh=5,
                  penalty_threshold=8, xy_translation_penalty_weight=1)
 
-        R_matlab = np.array([
-        [1.0000,    0.0018,   -0.0067],
-        [-0.0017,    1.0000 ,   0.0094],
-        [0.0067,   -0.0094 ,   0.9999]
-        ])
-        npt.assert_allclose(R, R_matlab, atol=0.01)
-        npt.assert_allclose(s-1.0049, 0, atol=0.01)
-        npt.assert_allclose(t - [-5, 8.3, -53], 0, atol=3)
-        
+        s_mat = 1.0114
+        R_mat = np.array([
+            [ 1.0000,   -0.0017,   -0.0088],
+            [ 0.0018 ,   1.0000  ,  0.0041],
+            [ 0.0088  , -0.0041   , 1.0000]
+            ])
+        t_mat = np.array([
+            -4.2247,
+            5.7450,
+            -55.73
+            ])
+        npt.assert_allclose(R, R_mat)
+        npt.assert_allclose(s, s_mat)
+        npt.assert_allclose(t, t_mat)

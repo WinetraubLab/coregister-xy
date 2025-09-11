@@ -157,8 +157,8 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, 
                 max_max_nInliers = max_nInliers
                 idx_inliers = np.where(E[:, idx] <= e_thr)[0]
 
-                if max_max_nInliers >= max(9, round(n*0.009)):
-                    break
+                # if max_max_nInliers >= max(9, round(n*0.009)):
+                #     break
 
     if len(idx_inliers) == 0:
         print("No inliers")
