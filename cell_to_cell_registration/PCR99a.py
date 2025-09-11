@@ -56,43 +56,30 @@ def _score_correspondences(log_ratio_mat, thr1):
             min_costs[i] = np.nanmin(costs)
         return min_costs
 
-def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2):
-    """
-    This function contains the Python adaptation of the original PCR99a algorithm.
-    Robustly estimate correspondences between two 3D point sets by generating hypotheses 
-    from point triplets.
-    Inputs:
-        xyz_gt: array (3,n) of reference points.
-        xyz_est: array (3,n) of points to match to reference points.
-        log_ratio_mat: (n,n) precomputed log-ratio matrix between points, used for prescreening triplets.
-        sort_idx: array (n,) Indices giving the sorted order of points (used to map triplets to original indices).
-        n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
-        thr1: Log-ratio consistency threshold for prescreening candidate triplets.
-        sigma: Noise scaling factor used in the inlier distance threshold.
-        thr2: Distance threshold for final inliers.
-    Returns:
-        A, B: arrays of corresponding inlier point pairs.
-    """
+def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh):
     n = xyz_gt.shape[1]
 
-    # Preallocate hypothesis matrices
+    # --- Configurable parameters ---
+    early_stop_on = True                                    # early stopping
+    min_inliers_to_trigger_stop = max(9, round(n * 0.01))   # min inlier ratio: 1%, must be more than 9 pts
+    no_improvement_limit = 10                               # Max iterations with no better result
+    e_thr = pcr99_inlier_thresh
+
     Sx_mat = np.zeros((5, n_hypo))
     Sy_mat = np.zeros((5, n_hypo))
     Sz_mat = np.zeros((5, n_hypo))
 
     max_max_nInliers = 0
+    no_improvement_iters = 0
     c = 0
     idx_inliers = []
 
     triplets = list(itertools.combinations(range(n), 3))
 
     for t in triplets:
-        # print(t)
-        i,j,k = t
-                    
-
+        i, j, k = t
         if k < 0 or k >= n:
-            continue  # skip invalid
+            continue
 
         # Map to original indices
         i_old = sort_idx[i]
@@ -116,58 +103,55 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, 
         B = xyz_est[:, [i, j, k]]
 
         scale, R, t = sRt_from_N_points(A, B)
-
         if np.any(np.isnan([scale, *R.flatten(), *t])):
-            # Skip degenerate triple
-            continue
+            continue  # Skip bad triplet
 
-        # Fill hypothesis matrices (5×n_hypo)
+        # Store hypothesis
         Sx_mat[:, c - 1] = [scale*R[0,0], scale*R[0,1], scale*R[0,2], t[0], 1]
         Sy_mat[:, c - 1] = [scale*R[1,0], scale*R[1,1], scale*R[1,2], t[1], 1]
         Sz_mat[:, c - 1] = [scale*R[2,0], scale*R[2,1], scale*R[2,2], t[2], 1]
 
-        # When batch is full, evaluate inliers
+        # Evaluate when batch is full
         if c == n_hypo:
             c = 0
 
-            Ex = np.hstack([
-                -xyz_gt.T,
-                -np.ones((n, 1)),
-                xyz_est[0, :].reshape(-1, 1)
-            ]) @ Sx_mat
-            Ey = np.hstack([
-                -xyz_gt.T,
-                -np.ones((n, 1)),
-                xyz_est[1, :].reshape(-1, 1)
-            ]) @ Sy_mat
-            Ez = np.hstack([
-                -xyz_gt.T,
-                -np.ones((n, 1)),
-                xyz_est[2, :].reshape(-1, 1)
-            ]) @ Sz_mat
+            Ex = np.hstack([-xyz_gt.T, -np.ones((n, 1)), xyz_est[0, :].reshape(-1, 1)]) @ Sx_mat
+            Ey = np.hstack([-xyz_gt.T, -np.ones((n, 1)), xyz_est[1, :].reshape(-1, 1)]) @ Sy_mat
+            Ez = np.hstack([-xyz_gt.T, -np.ones((n, 1)), xyz_est[2, :].reshape(-1, 1)]) @ Sz_mat
 
             E = Ex**2 + Ey**2 + Ez**2
-            e_thr = (sigma * thr2) ** 2
 
             nInliers = np.sum(E <= e_thr, axis=0)
             max_nInliers = np.max(nInliers)
             idx = np.argmax(nInliers)
 
-            if max_max_nInliers < max_nInliers:
+            # --- Check if best so far ---
+            if max_nInliers > max_max_nInliers:
                 max_max_nInliers = max_nInliers
                 idx_inliers = np.where(E[:, idx] <= e_thr)[0]
+                no_improvement_iters = 0
+            else:
+                no_improvement_iters += 1
 
-                # if max_max_nInliers >= max(9, round(n*0.009)):
-                #     break
+            # --- Early stopping logic ---
+            if (
+                early_stop_on and 
+                max_max_nInliers >= min_inliers_to_trigger_stop and 
+                no_improvement_iters >= no_improvement_limit
+            ):
+                break
 
+    print("Best hypothesis inliers:", max_max_nInliers, "/", n)
+
+    # --- Final result ---
     if len(idx_inliers) == 0:
-        print("No inliers")
+        print("No inliers found.")
         return np.array([]), np.array([])
 
-    A = xyz_gt[:,idx_inliers]
-    B = xyz_est[:,idx_inliers]
+    A = xyz_gt[:, idx_inliers]
+    B = xyz_est[:, idx_inliers]
 
-    return (A, B)
+    return A, B
 
 def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
                  plane_inlier_thresh=5, z_dist_thresh=4,
@@ -321,7 +305,7 @@ def _compute_affine(A, B):
 
     return T_4x4
 
-def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=2, thr2=5, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
+def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
                  penalty_threshold=8, xy_translation_penalty_weight=1):
     """
     Run full alignment algorithm. 
@@ -330,8 +314,7 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
         xyz_hist: Candidate set to align, from 2D histology image, in pixels. (3,n)
         n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
         thr1: Log-ratio consistency threshold for prescreening candidate triplets.
-        sigma: Noise scaling factor used in the inlier distance threshold.
-        thr2: Distance threshold for final inliers, in pixels.
+        pcr99_inlier_thresh: threshold for considering points inliers in PCR99a.
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
             still considered an inlier during RANSAC iterations.
@@ -363,7 +346,7 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, sigma=
     xyz_oct  = xyz_oct[:, sort_idx]
 
     # 3. pcr
-    A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, sigma, thr2)
+    A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh)
 
     # 4. plane fit ransac
     A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, z_dist_thresh,

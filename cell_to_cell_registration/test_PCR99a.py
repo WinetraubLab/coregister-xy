@@ -96,6 +96,7 @@ class TestPCR99a(unittest.TestCase):
         T, (s,R,t) = calculate_affine_alignment(xyz_oct, xyz_hist, plane_inlier_thresh=5, z_dist_thresh=5,
                  penalty_threshold=8, xy_translation_penalty_weight=1)
 
+        # Matlab result from finding absolute best fit inliers (no early stop)
         s_mat = 1.0114
         R_mat = np.array([
             [ 1.0000,   -0.0017,   -0.0088],
@@ -107,6 +108,6 @@ class TestPCR99a(unittest.TestCase):
             5.7450,
             -55.73
             ])
-        npt.assert_allclose(R, R_mat)
-        npt.assert_allclose(s, s_mat)
-        npt.assert_allclose(t, t_mat)
+        npt.assert_allclose(R, R_mat,atol=0.01)
+        npt.assert_allclose(s, s_mat,atol=0.01)
+        npt.assert_allclose(t, t_mat,atol=5)
