@@ -67,9 +67,25 @@ def _score_correspondences(log_ratio_mat, thr1, bin_width=0.1):
         return min_costs
 
 def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh):
+    """
+    This function contains the Python adaptation of the original PCR99a algorithm.
+    Robustly estimate correspondences between two 3D point sets by generating hypotheses 
+    from point triplets.
+    Inputs:
+        xyz_gt: array (3,n) of reference points.
+        xyz_est: array (3,n) of points to match to reference points.
+        log_ratio_mat: (n,n) precomputed log-ratio matrix between points, used for prescreening triplets.
+        sort_idx: array (n,) Indices giving the sorted order of points (used to map triplets to original indices).
+        n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
+        thr1: Log-ratio consistency threshold for prescreening candidate triplets.
+        sigma: Noise scaling factor used in the inlier distance threshold.
+        thr2: Distance threshold for final inliers.
+    Returns:
+        A, B: arrays of corresponding inlier point pairs.
+    """
     n = xyz_gt.shape[1]
 
-    # --- Configurable parameters ---
+    # Configurable parameters
     early_stop_on = True                                    # early stopping
     min_inliers_to_trigger_stop = max(9, round(n * 0.01))   # min inlier ratio: 1%, must be more than 9 pts
     no_improvement_limit = 10                               # Max iterations with no better result
@@ -110,7 +126,7 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
                 j_old = sort_idx[j]
                 k_old = sort_idx[k]
 
-                # --- Prescreening ---
+                # Prescreening
                 log_ratio_ij = log_ratio_mat[i_old, j_old]
                 log_ratio_jk = log_ratio_mat[j_old, k_old]
                 log_ratio_ki = log_ratio_mat[k_old, i_old]
@@ -150,7 +166,7 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
                     max_nInliers = np.max(nInliers)
                     idx = np.argmax(nInliers)
 
-                    # --- Check if best so far ---
+                    # Check if best so far
                     if max_nInliers > max_max_nInliers:
                         max_max_nInliers = max_nInliers
                         idx_inliers = np.where(E[:, idx] <= e_thr)[0]
