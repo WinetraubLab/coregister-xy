@@ -50,16 +50,11 @@ class TestPCR99a(unittest.TestCase):
         npt.assert_allclose(min_costs, vals, rtol=1e-7, atol=1e-7)
 
     def test_pcr_core(self):
-        P = np.array([
-            [ 2.14,  1.71,  1.87,  1.18,  1.44],
-            [-1.93, -1.75, -1.66, -1.51, -1.30],
-            [ 3.61,  4.15,  3.10,  3.40,  3.27]])
-
+        P = np.random.rand(3,9)
         Q = self.s * (self.R @ P) + self.t.reshape((3,1))
 
         thr1 = 0.03
-        thr2 = 5
-        sigma = 2
+        inlier_thresh = 100
 
         d_gt = np.sum((Q[:, :, None] - Q[:, None, :])**2, axis=0)  
         d_est = np.sum((P[:, :, None] - P[:, None, :])**2, axis=0) 
@@ -68,7 +63,8 @@ class TestPCR99a(unittest.TestCase):
         min_costs = _score_correspondences(log_ratio_mat, thr1)
         sort_idx = np.argsort(min_costs)
 
-        A, B = _core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, sigma, thr2)
+        A, B = _core_PCR99a(P, Q, log_ratio_mat, sort_idx, 10, thr1, inlier_thresh)
+
         npt.assert_almost_equal(A, P, decimal=3)
         npt.assert_almost_equal(B, Q, decimal=3)
 
