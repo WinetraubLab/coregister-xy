@@ -9,7 +9,7 @@ from scipy.ndimage import mean as nd_mean, binary_dilation
 from skimage.morphology import disk
 from skimage.transform import downscale_local_mean
 
-def clahe_normalize(img):
+def _clahe_normalize(img):
     """
     Performs CLAHE normalization on a 2D input image. 
     Enhances local contrast by applying histogram equalization to small tiles.
@@ -38,7 +38,7 @@ def clahe_normalize(img):
     else:
         raise ValueError(f"Unsupported image shape or type: {img.shape}, dtype: {img.dtype}")
 
-def global_normalization(image):
+def _global_normalization(image):
     """
     Apply global luminance-channel normalization on a 2D image.
     Inputs:
@@ -49,7 +49,7 @@ def global_normalization(image):
     image = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
     return image
 
-def filter_masks_by_darkness(image, masks, ring_size=3, min_diff=0, keep_brighter_than=False):
+def _filter_masks_by_darkness(image, masks, ring_size=3, min_diff=0, keep_brighter_than=False):
     """
     Filter cell masks by brightness/contrast.
     Inputs:
@@ -119,7 +119,7 @@ def filter_masks_by_darkness(image, masks, ring_size=3, min_diff=0, keep_brighte
     print(f"{rem} cell masks removed.")
     return filtered
 
-def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_threshold=-8, keep_dark_cells=True, gpu=True, normalization="clahe"):
+def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_threshold=-8, keep_dark_cells=True, gpu=True, normalization="global"):
     """
     Segment cells from 2D or 3D image.
     Inputs:
@@ -133,7 +133,7 @@ def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_thresh
                 Typical range -10 to 10 (recommend -8 to -9 for OCT, -5 for fluorescent/histology)
         keep_dark_cells: if True, keeps only cells whose insides are darker than their immediate surroundings.
         gpu: whether GPU is available for acceleration. True/False (highly recommend GPU)
-        normalization: choose CLAHE (local) or global image normalization. set to 'clahe' or 'global'
+        normalization: choose CLAHE (local) or global image normalization. set to 'clahe' or 'global' or 'none'
     Returns:
         filtered_masks
     """
@@ -144,16 +144,16 @@ def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_thresh
 
     if normalization == 'clahe': # local normalization
         if image.ndim == 2:
-            image = clahe_normalize(image)
+            image = _clahe_normalize(image)
         elif image.ndim == 3:
-            image = np.array([clahe_normalize(o) for o in image])
+            image = np.array([_clahe_normalize(o) for o in image])
             image = np.array([cv2.GaussianBlur(o, (5, 5), 0) for o in image])
 
-    else: # global normalization
+    elif normalization == 'global': # global normalization
         if image.ndim == 2:
-            image = global_normalization(image)
+            image = _global_normalization(image)
         if image.ndim == 3:
-            image = np.array([global_normalization(o) for o in image])
+            image = np.array([_global_normalization(o) for o in image])
 
     model = models.Cellpose(model_type='cyto2', gpu=gpu)
 
@@ -176,6 +176,6 @@ def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_thresh
         )
 
     if keep_dark_cells:
-        masks = filter_masks_by_darkness(image, masks)
+        masks = _filter_masks_by_darkness(image, masks)
 
     return masks, flows
