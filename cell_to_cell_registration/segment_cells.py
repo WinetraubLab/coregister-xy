@@ -119,23 +119,30 @@ def _filter_masks_by_darkness(image, masks, ring_size=3, min_diff=0, keep_bright
     print(f"{rem} cell masks removed.")
     return filtered
 
-def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_threshold=-8, keep_dark_cells=True, gpu=True, normalization="global"):
+def segment_cells(image, avg_cell_diameter_px, flow_threshold=0.85, cellprob_threshold=-8, keep_cells='dark', gpu=True, normalization="global"):
     """
     Segment cells from 2D or 3D image.
     Inputs:
-        image: the pre-cropped 2D or 3D image to be segmented.
-        avg_cell_diameter: expected average diameter of cells in the image.
+        image: CV2 image object. The pre-cropped 2D or 3D image to be segmented.
+        avg_cell_diameter_px: expected average diameter of cells in the image, in pixels.
         flow_threshold: controls how strictly the predicted flow fields follow expected cell behavior. 
                 Increase to allow more cell detections. 
                 Typical range 0-1 (recommend 0.8-0.85 for OCT, 0.7 for fluorescent/histology)
         cellprob_threshold: minimum threshold applied to the predicted cell probability map to detect cells.
                 Decrease to allow more cell detections. 
                 Typical range -10 to 10 (recommend -8 to -9 for OCT, -5 for fluorescent/histology)
-        keep_dark_cells: if True, keeps only cells whose insides are darker than their immediate surroundings.
+        keep_cells: Set to one of the following to filter out incorrectly segmented cells.
+                'dark':     keeps only cells whose insides are darker than their immediate surroundings.
+                'light':    keeps only cells whose insides are lighter than their immediate surroundings.
+                'all':      keeps all segmented cells.
         gpu: whether GPU is available for acceleration. True/False (highly recommend GPU)
-        normalization: choose CLAHE (local) or global image normalization. set to 'clahe' or 'global' or 'none'
+        normalization: Set to one of the following:
+                'clahe':    CLAHE normalization is local tiled normalization. Good for images where lighting is uneven.
+                'global':   Global image normalization.
+                'none':     No normalization.
     Returns:
-        filtered_masks
+        masks: array of size [image] where unique nonzero values indicate an instance of a segmented cell.
+        flows: Cellpose object that can be used to visualize cell probability map.
     """
 
     if image.dtype != np.uint8:
@@ -160,7 +167,7 @@ def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_thresh
     if image.ndim == 3:
         masks, flows, styles, diams = model.eval(
             image,
-            diameter=avg_cell_diameter, 
+            diameter=avg_cell_diameter_px, 
             flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold,
             stitch_threshold=0.3,
@@ -169,13 +176,15 @@ def segment_cells(image, avg_cell_diameter, flow_threshold=0.85, cellprob_thresh
     if image.ndim == 2:
         masks, flows, styles, diams = model.eval(
             image,
-            diameter=avg_cell_diameter, 
+            diameter=avg_cell_diameter_px, 
             flow_threshold=flow_threshold,
             cellprob_threshold=cellprob_threshold,
             channels=[0, 0]
         )
 
-    if keep_dark_cells:
+    if keep_cells == 'dark':
         masks = _filter_masks_by_darkness(image, masks)
+    elif keep_cells == 'light':
+        masks = _filter_masks_by_darkness(image, masks, keep_brighter_than=True)
 
     return masks, flows
