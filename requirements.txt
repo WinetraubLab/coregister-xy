@@ -4,3 +4,4 @@ opencv-python>=4.10.0
 scipy>=1.13.1
 scikit-learn~=1.6.1
 pillow~=11.1.0
+cellpose==2.2
