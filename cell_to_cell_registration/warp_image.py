@@ -82,7 +82,7 @@ def minimal_projection(thickness, oct_volume, T, image_shape, hist_assigned_z=1,
     arr = np.array(warped_imgs)
     return np.min(arr, axis=0)
 
-def bspline_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None):
+def bspline_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, points_to_warp=None, output_shape=None):
     """
     Warp an image using B-spline interpolation from control points.
 
@@ -91,6 +91,7 @@ def bspline_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=Non
         source_pts: Source control points (y, x). shape (n,2)
         dest_pts: Destination control points (y, x). shape (n,2)
         order: Spline interpolation order (default=3 for cubic)
+        points_to_warp: Points to transform, from the coordinate space of source_pts
         output_shape (H_out, W_out): Shape of output image (optional)
 
     Returns:
@@ -132,9 +133,19 @@ def bspline_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=Non
     else:
         image_smooth = spline_filter(image, order=order)
         warped_image = map_coordinates(image_smooth, [sample_y, sample_x], order=order, mode='constant')
-    return warped_image
+    if points_to_warp is not None:
+        x = points_to_warp[:, 0]
+        y = points_to_warp[:, 1]
+        dx = interp_dX(x, y)
+        dy = interp_dY(x, y)
+        warped_points = np.stack([x + dx, y + dy], axis=-1)
+        if points_to_warp.shape[1] == 3: # if xyz coords were provided, keep z
+            warped_points = np.stack([x + dx, y + dy, points_to_warp[:,2]], axis=-1)
+    else:
+        warped_points = None
+    return warped_image, warped_points
 
-def affine_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None):
+def affine_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, points_to_warp=None, output_shape=None):
     """
     Warp the input 2D image using affine transform matrix.
 
@@ -142,6 +153,7 @@ def affine_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None
         image: 2D numpy array (H, W)
         T: 3x3 affine transform matrix from _compute_affine_yx
         output_shape: (H_out, W_out)
+        points_to_warp: points to transform, from the coordinate space of source_pts
         order: interpolation order
 
     Returns:
@@ -166,7 +178,16 @@ def affine_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None
         order=order,
         mode='constant'
     )
-    return warped
+
+    if points_to_warp is not None:
+        N = points_to_warp.shape[0]
+        points_h = np.hstack([points_to_warp[:,:2], np.ones((N, 1))])  # (N, 3)
+        warped_points = (T @ points_h.T).T[:, :2]
+        if points_to_warp.shape[1] == 3: # if xyz coords were provided, keep z
+            warped_points = np.hstack([warped_points, points_to_warp[:,2]])
+    else:
+        warped_points = None
+    return warped, warped_points
 
 def _compute_affine_yx(A, B):
     """
