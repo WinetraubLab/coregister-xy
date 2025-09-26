@@ -96,8 +96,9 @@ def bspline_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=Non
     Returns:
         Warped image (H_out, W_out) or (H, W) if output_shape not given
     """
-    # Default output size = input size
-    H, W = image.shape
+    is_color = image.ndim == 3 and image.shape[2] == 3
+
+    H, W = image.shape[:2]
     if output_shape is None:
         H_out, W_out = H, W
     else:
@@ -120,11 +121,17 @@ def bspline_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=Non
     sample_x = grid_x + disp_x
 
     # Smooth image
-    image_smooth = spline_filter(image, order=order)
+    if is_color:
+        warped_channels = []
+        for c in range(3):
+            image_smooth_c = spline_filter(image[:, :, c], order=order)
+            warped_c = map_coordinates(image_smooth_c, [sample_y, sample_x], order=order, mode='constant')
+            warped_channels.append(warped_c)
 
-    # Warp the image
-    warped_image = map_coordinates(image_smooth, [sample_y, sample_x], order=order, mode='constant')
-
+        warped_image = np.stack(warped_channels, axis=-1)
+    else:
+        image_smooth = spline_filter(image, order=order)
+        warped_image = map_coordinates(image_smooth, [sample_y, sample_x], order=order, mode='constant')
     return warped_image
 
 def affine_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None):
