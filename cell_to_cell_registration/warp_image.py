@@ -6,20 +6,23 @@ from scipy.interpolate import Rbf
 from scipy.ndimage import map_coordinates
 from scipy.ndimage import affine_transform
 
-def sample_oct_from_plane(oct_volume, T, image_shape, hist_assigned_z=1, tile_size=500, verbose=False):
+def sample_oct_from_plane(oct_volume, T, image_shape=None, tile_size=1000, verbose=False):
     """
     Sample the OCT volume along a transformed 2D plane.
 
     Args:
         oct_volume: np.ndarray of shape (Z, Y, X)
         T: 4x4 affine matrix (image to 3D space)
-        image_shape: tuple (H, W) of the image grid
-        hist_assigned_z: initial assumed z coordinate of the flat histology image
-        tile_size: size of each tile (default: 500)
+        image_shape: tuple (H, W): size of the image to sample from OCT volume. Defaults to same (H,W) 
+                size as the OCT image.
+        tile_size: side length of each tile in px (default: 1000). Decrease this number if not enough RAM to process full image.
     Returns:
         warped_img: (H, W) 2D image of sampled values
     """
-    H, W = image_shape
+    if image_shape == None:
+        image_shape = oct_volume[0].shape[1:]
+    else:
+        H, W = image_shape
     warped_img = np.zeros((H, W), dtype=np.float32)
     z_coords = np.zeros((H, W), dtype=np.float32)
 
@@ -34,7 +37,7 @@ def sample_oct_from_plane(oct_volume, T, image_shape, hist_assigned_z=1, tile_si
             ones = np.ones_like(xx)
             pixels_h = np.stack([
                 xx.ravel(), yy.ravel(),
-                np.full_like(xx.ravel(), hist_assigned_z),
+                np.full_like(xx.ravel(), 1),
                 ones.ravel()
             ], axis=0)  # shape: (4, N)
 
@@ -64,7 +67,7 @@ def sample_oct_from_plane(oct_volume, T, image_shape, hist_assigned_z=1, tile_si
 
     return warped_img, z_coords
 
-def minimal_projection(thickness, oct_volume, T, image_shape, hist_assigned_z=1,
+def minimal_projection(thickness, oct_volume, T, image_shape=None,
                      transform_order="xyz", volume_order="zyx", plane_axes=("x","y"), verbose=False):
     """
     Sample minimal projection of OCT along a transformed plane, with slab thickness.
@@ -72,12 +75,15 @@ def minimal_projection(thickness, oct_volume, T, image_shape, hist_assigned_z=1,
         thickness: Thickness of slab, in px
         oct_volume: np.ndarray of shape (Z, Y, X)
         T: 4x4 affine matrix (image to 3D space)
-        image_shape: tuple (H, W) of the image grid
-        hist_assigned_z: initial assumed z coordinate of the flat histology image
+        image_shape: tuple (H, W): size of the image to sample from OCT volume. Defaults to same (H,W) 
+                size as the OCT image.
     """
     warped_imgs = []
+
+    if image_shape == None:
+        image_shape = oct_volume[0].shape[1:]
     for i in range(thickness):
-        img, zc = sample_oct_from_plane(oct_volume, T, image_shape, hist_assigned_z + i-(thickness // 2), verbose=verbose)
+        img, zc = sample_oct_from_plane(oct_volume, T, image_shape, 1 + i-(thickness // 2), verbose=verbose)
         warped_imgs.append(img)
     arr = np.array(warped_imgs)
     return np.min(arr, axis=0)
