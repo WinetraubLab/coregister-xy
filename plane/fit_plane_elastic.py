@@ -185,7 +185,7 @@ class FitPlaneElastic:
     
     def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
         """
-        Project a 2D image to 3D physical space within range x_range_mm, y_range_mm using TPS interpolation.
+        Project a 2D image (with coordinates u,v) to 3D physical space within range x_range_mm, y_range_mm.
 
         Args:
             cv2_image: The source image (2D or 3D RGB) to be transformed.
@@ -213,7 +213,7 @@ class FitPlaneElastic:
         y_mm = np.linspace(y_range_mm[0], (y_range_mm[1]/pixel_size_mm - 1) * pixel_size_mm, height_px)
         xx_mm, yy_mm = np.meshgrid(x_mm, y_mm)
 
-        # Flatten the grid for TPS transformation
+        # Flatten the grid
         mm_points = np.vstack([xx_mm.ravel(), yy_mm.ravel(), np.zeros_like(yy_mm.ravel())]).T
 
         # Map physical coordinates to UV coordinates using the inverse interpolator
