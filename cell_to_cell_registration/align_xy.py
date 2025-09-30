@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import map_coordinates, spline_filter, affine_transform
 from scipy.interpolate import Rbf
 
-def elastic_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, output_shape=None):
+def _elastic_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None):
     """
     Warp an image using B-spline interpolation from control points.
 
@@ -56,7 +56,7 @@ def elastic_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, outpu
 
     return warped_image
 
-def affine_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, output_shape=None):
+def _affine_warp_image_2d(image, source_pts, dest_pts, order=3, output_shape=None):
     """
     Warp the input 2D image using affine transform matrix.
 
@@ -115,3 +115,109 @@ def _compute_affine_yx(A, B):
     T = T.T 
     T_full = np.vstack([T, [0, 0, 1]])
     return T_full
+
+def align_and_crop_histology_image(histology_image, oct_coords_mm, histology_coords_px, 
+                                   oct_crop_region_mm, align_mode='affine'):
+    """
+    Aligns a histology image to OCT coordinate space using point correspondences, and crops a region of interest defined in OCT space.
+    This function assumes that the OCT coordinate system has an inverted y-axis 
+    compared to the image coordinate system. 
+  
+    Inputs:
+    ----------
+    oct_coords_mm : (N, 3) array
+        Coordinates of corresponding points in the OCT system. Units: mm (x,y,z).
+        The Z-coordinate may be NaN if unable to determine Z from the fluorescent barcode at that point.
+    
+    histology_coords_px : (N, 2) array
+        Coordinates of the corresponding points in the histology image. Units: px (i,j).
+    
+    oct_crop_region_mm : (4, 2) array
+        The corner points of the region of interest to crop, specified in the OCT coordinate system. 
+        Units: mm (x,y).
+
+    histology_image : (H,W) or (H,W,C) array 
+        The full histology image as a NumPy array. Can be 2D (grayscale) or 3D (RGB).
+
+    align_mode: 'affine' or 'elastic'
+        Specify whether to use affine or elastic rough alignment. Recommend affine unless you have 
+        highly visible barcodes and multiple points per barcode.
+
+    Returns:
+    -------
+    cropped_histology_image : ndarray
+        The cropped region from the histology image. 1px/um scale.
+    """
+    # Convert to um
+    oct_coords_mm = np.array(oct_coords_mm)
+    histology_coords_px = np.array(histology_coords_px)
+
+    oct_xy_mm = oct_coords_mm[:, :2].copy()
+    oct_xy_um = oct_xy_mm * 1000 
+
+    crop_poly_mm = np.array(oct_crop_region_mm)
+    crop_poly_um = crop_poly_mm * 1000
+    print(crop_poly_um)
+
+    # Shift dest coordinates to positive space for image warp
+    shift_offset = -np.minimum(np.min(np.vstack([oct_xy_um, crop_poly_um]), axis=0), 0)
+    print(shift_offset)
+    oct_xy_um_shifted = oct_xy_um + shift_offset
+    crop_poly_um_shifted = crop_poly_um + shift_offset
+
+    # Output image size=crop region
+    max_coords = np.max(crop_poly_um_shifted, axis=0)
+    output_shape = tuple(np.ceil(max_coords[::-1]).astype(int))  # (H, W)
+
+    # Warp the image
+    if histology_image.ndim == 2:
+        if align_mode == 'affine':
+            warped_img = _affine_warp_image_2d(
+                image=histology_image,
+                source_pts=histology_coords_px,
+                dest_pts=oct_xy_um_shifted,
+                output_shape=output_shape
+            )
+        elif align_mode == 'elastic':
+            warped_img = _elastic_warp_image_2d(
+                image=histology_image,
+                source_pts=histology_coords_px,
+                dest_pts=oct_xy_um_shifted,
+                output_shape=output_shape
+            )
+    else:
+        # Warp each channel
+        warped_channels = []
+        for c in range(histology_image.shape[2]):
+            if align_mode == 'affine':
+                warped_c = _affine_warp_image_2d(
+                    image=histology_image[:, :, c],
+                    source_pts=histology_coords_px,
+                    dest_pts=oct_xy_um_shifted,
+                    output_shape=output_shape
+                )
+            elif align_mode == 'elastic':
+                warped_c = _elastic_warp_image_2d(
+                    image=histology_image[:, :, c],
+                    source_pts=histology_coords_px,
+                    dest_pts=oct_xy_um_shifted,
+                    output_shape=output_shape
+                )
+            warped_channels.append(warped_c)
+        warped_img = np.stack(warped_channels, axis=-1)
+
+    # Crop 
+    crop_min = np.floor(np.min(crop_poly_um_shifted, axis=0)).astype(int)
+    crop_max = np.ceil(np.max(crop_poly_um_shifted, axis=0)).astype(int)
+
+    y_min, x_min = crop_min[::-1]
+    y_max, x_max = crop_max[::-1]
+
+    y_min = max(0, y_min)
+    x_min = max(0, x_min)
+    y_max = min(warped_img.shape[0], y_max)
+    x_max = min(warped_img.shape[1], x_max)
+
+    cropped_histology_image = warped_img[y_min:y_max, x_min:x_max]
+
+    return cropped_histology_image
