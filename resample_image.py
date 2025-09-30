@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import map_coordinates
 
-def resample_linear(oct_volume, T, image_shape=None, tile_size=1000, verbose=False):
+def resample_linear(oct_volume, T, image_shape=None, processing_tile_size=1000, verbose=False):
     """
     Sample the OCT volume along a transformed 2D plane.
 
@@ -22,10 +22,10 @@ def resample_linear(oct_volume, T, image_shape=None, tile_size=1000, verbose=Fal
     warped_img = np.zeros((H, W), dtype=np.float32)
     z_coords = np.zeros((H, W), dtype=np.float32)
 
-    for y0 in range(0, H, tile_size):
-        for x0 in range(0, W, tile_size):
-            y1 = min(y0 + tile_size, H)
-            x1 = min(x0 + tile_size, W)
+    for y0 in range(0, H, processing_tile_size):
+        for x0 in range(0, W, processing_tile_size):
+            y1 = min(y0 + processing_tile_size, H)
+            x1 = min(x0 + processing_tile_size, W)
             h, w = y1 - y0, x1 - x0
 
             # Create meshgrid for this tile

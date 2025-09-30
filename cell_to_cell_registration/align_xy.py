@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import map_coordinates, spline_filter, affine_transform
 from scipy.interpolate import Rbf
 
-def elastic_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, points_to_warp=None, output_shape=None):
+def elastic_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, output_shape=None):
     """
     Warp an image using B-spline interpolation from control points.
 
@@ -53,19 +53,10 @@ def elastic_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, point
     else:
         image_smooth = spline_filter(image, order=order)
         warped_image = map_coordinates(image_smooth, [sample_y, sample_x], order=order, mode='constant')
-    if points_to_warp is not None:
-        x = points_to_warp[:, 0]
-        y = points_to_warp[:, 1]
-        dx = interp_dX(x, y)
-        dy = interp_dY(x, y)
-        warped_points = np.stack([x + dx, y + dy], axis=-1)
-        if points_to_warp.shape[1] == 3: # if xyz coords were provided, keep z
-            warped_points = np.stack([x + dx, y + dy, points_to_warp[:,2]], axis=-1)
-    else:
-        warped_points = None
-    return warped_image, warped_points
 
-def affine_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, points_to_warp=None, output_shape=None):
+    return warped_image
+
+def affine_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, output_shape=None):
     """
     Warp the input 2D image using affine transform matrix.
 
@@ -99,15 +90,7 @@ def affine_warp_image_2d_and_points(image, source_pts, dest_pts, order=3, points
         mode='constant'
     )
 
-    if points_to_warp is not None:
-        N = points_to_warp.shape[0]
-        points_h = np.hstack([points_to_warp[:,:2], np.ones((N, 1))])  # (N, 3)
-        warped_points = (T @ points_h.T).T[:, :2]
-        if points_to_warp.shape[1] == 3: # if xyz coords were provided, keep z
-            warped_points = np.hstack([warped_points, points_to_warp[:,2]])
-    else:
-        warped_points = None
-    return warped, warped_points
+    return warped
 
 def _compute_affine_yx(A, B):
     """
