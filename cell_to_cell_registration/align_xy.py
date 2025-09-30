@@ -157,11 +157,9 @@ def align_and_crop_histology_image(histology_image, oct_coords_mm, histology_coo
 
     crop_poly_mm = np.array(oct_crop_region_mm)
     crop_poly_um = crop_poly_mm * 1000
-    print(crop_poly_um)
 
     # Shift dest coordinates to positive space for image warp
     shift_offset = -np.minimum(np.min(np.vstack([oct_xy_um, crop_poly_um]), axis=0), 0)
-    print(shift_offset)
     oct_xy_um_shifted = oct_xy_um + shift_offset
     crop_poly_um_shifted = crop_poly_um + shift_offset
 
