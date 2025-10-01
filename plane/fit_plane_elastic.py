@@ -3,6 +3,8 @@ from scipy.interpolate import RBFInterpolator
 from scipy.ndimage import map_coordinates
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
+from typing import Tuple, Union
+from numpy.typing import NDArray
 
 class FitPlaneElastic:
     """
@@ -183,19 +185,34 @@ class FitPlaneElastic:
         in_plane_xyz_mm, _ = self._split_vector_to_in_plane_and_out_plane(xyz_mm, output_coordinate_system='plane')
         return self.xyz_to_uv_elastic_interpolator(in_plane_xyz_mm)
     
-    def image_to_physical(self, cv2_image, x_range_mm=[-1, 1], y_range_mm=[-1, 1], pixel_size_mm=1e-3):
+    def image_to_physical_z_projection(
+            self,
+            cv2_image: Union[NDArray[np.uint8], NDArray[np.floating]],
+            x_range_mm: Tuple[float, float] = (-1.0, 1.0),
+            y_range_mm: Tuple[float, float] = (-1.0, 1.0),
+            pixel_size_mm: float = 1e-3,
+        ) -> NDArray[np.floating]:
         """
-        Project a 2D image (with coordinates u,v) to 3D physical space within range x_range_mm, y_range_mm.
+        Project a 2D image into physical space and collapse along the z-axis.
+
+        Notes:
+            1. The (u, v) -> (x, y, z) mapping is implemented in the parent class.
+            2. This function embeds `cv2_image` into physical space using that
+               mapping, then flattens the result along the z dimension to form
+               a 2D projection.
 
         Args:
-            cv2_image: The source image (2D or 3D RGB) to be transformed.
-            x_range_mm: The physical range in the x-direction (in mm).
-            y_range_mm: The physical range in the y-direction (in mm).
-            pixel_size_mm: The size of each pixel in mm.
+            cv2_image: Source image (OpenCV grayscale H×W or color H×W×3).
+            x_range_mm: Physical extent along the x-axis (min, max) in mm.
+            y_range_mm: Physical extent along the y-axis (min, max) in mm.
+            pixel_size_mm: Size of each output voxel in mm. Also known as output volume resolution.
 
         Returns:
-            transformed_image: The transformed image in physical space.
+            ndarray: A 2D image with shape (y, x) for grayscale or (y, x, 3) for color,
+            representing `cv2_image` projected into physical space and flattened
+            along z. Pixels outside of cv2_image's range are replaced by NaN.
         """
+       
         # Input checks
         x_range_mm = np.array(x_range_mm)
         y_range_mm = np.array(y_range_mm)
@@ -250,6 +267,42 @@ class FitPlaneElastic:
             )
 
         return transformed_image
+
+    def image_to_physical_3d(
+            self,
+            cv2_image: Union[NDArray[np.uint8], NDArray[np.floating]],
+            x_range_mm: Tuple[float, float] = (-1.0, 1.0),
+            y_range_mm: Tuple[float, float] = (-1.0, 1.0),
+            z_range_mm: Tuple[float, float] = (-1.0, 1.0),
+            pixel_size_mm: float = 1e-3,
+            image_thickness_mm: float = 5e-3,
+        ) -> NDArray[np.floating]:
+        """
+        Embed a 2D image into a 3D physical volume.
+
+        Notes:
+            1. The (u, v) -> (x, y, z) mapping is implemented in the parent class.
+            2. This function generates a 3D volume with `cv2_image` embedded according
+               to that mapping. 
+            3. Output volume limits are given by `x_range_mm`, `y_range_mm`, and `z_range_mm`
+            4. `cv2_image` "thickness" in the volume is set by `image_thickness_mm`.
+        
+        Args:
+            cv2_image: Source image (OpenCV grayscale H×W or color H×W×3).
+            x_range_mm: Physical extent of output volume along the x-axis (min, max) in mm.
+            y_range_mm: Physical extent of output volume along the y-axis (min, max) in mm.
+            z_range_mm: Physical extent of output volume along the z-axis (min, max) in mm.
+            pixel_size_mm: Size of each output voxel in mm. Also known as output volume resolution.
+            image_thickness_mm: image thickness prepandicular to u-v.
+
+        Returns:
+            A float ndarray representing the 3D volume:
+            - Grayscale: shape (z, y, x)
+            - Color:     shape (z, y, x, 3)
+            Voxels not covered by the projection are filled with NaN.
+        """
+        pass
+        
 
     def _split_vector_to_in_plane_and_out_plane(
             self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
