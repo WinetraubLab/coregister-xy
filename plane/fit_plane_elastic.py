@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from typing import Tuple, Union
 from numpy.typing import NDArray
-import cv2
 
 class FitPlaneElastic:
     """
