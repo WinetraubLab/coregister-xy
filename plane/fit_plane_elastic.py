@@ -48,6 +48,15 @@ class FitPlaneElastic:
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
 
+        # Fit linear (affine) interpolators
+        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
+        
+        self.xyz_to_uv_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.xyz_to_uv_affine_interpolator.fit(anchor_points_xyz_mm, anchor_points_uv_pix)
+
+        self.smoothing = smoothing
+
         # Create forward interpolator (uv -> xyz)
         self.uv_to_xyz_elastic_interpolator = RBFInterpolator(
             anchor_points_uv_pix,  # 2D source points (uv)
@@ -86,15 +95,6 @@ class FitPlaneElastic:
                     f"Inverse consistency check failed (distance_error = {distance_error_um:.0f} um). "
                     "Check that the anchor points are not in an evenly spaced grid."
             )
-
-        # Fit linear (affine) interpolators
-        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
-        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
-        
-        self.xyz_to_uv_affine_interpolator = LinearRegression(fit_intercept=True)
-        self.xyz_to_uv_affine_interpolator.fit(anchor_points_xyz_mm, anchor_points_uv_pix)
-
-        self.smoothing = smoothing
 
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):

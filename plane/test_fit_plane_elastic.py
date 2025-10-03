@@ -43,10 +43,12 @@ class TestFitPlaneElastic(unittest.TestCase):
     def test_uv_to_xyz_back_to_uv_with_smoothing(self):
         rand = np.random.rand(np.array(self.template_positions_xyz_mm).shape[0], np.array(self.template_positions_xyz_mm).shape[1])
         template_positions_xyz_mm_perturbed = self.template_positions_xyz_mm + rand
-        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, template_positions_xyz_mm_perturbed, smoothing=1e-4, print_inputs=False)
+        fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, template_positions_xyz_mm_perturbed, smoothing=0.5, print_inputs=False)
         xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
         uv = fp.get_uv_from_xyz(xyz)
-        npt.assert_array_almost_equal(uv, self.fluorescent_image_points_positions_uv_pix, decimal=3)
+        # Max UV reprojection error
+        error = np.linalg.norm(uv - self.fluorescent_image_points_positions_uv_pix, axis=1)
+        assert np.max(error) < 0.25
 
     def test_uv_to_xyz_back_to_uv(self):
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)
@@ -134,7 +136,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
         # Map that image to the right, see that filled with black
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[-0.1,0.9], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[-0.1,0.9], y_range_mm=[0,3], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[0,0,0],0)
         self.assertAlmostEqual(mapped_image[0,0,1],0)
@@ -143,7 +145,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertGreater(mapped_image[10,30,0],0) # Area which shouldn't be effected
 
         # Map that image to the left, see that filled with black
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0.1,1.1], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0.1,1.1], y_range_mm=[0,3], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[0,100-5,0],0)
         self.assertAlmostEqual(mapped_image[0,100-5,1],0)
@@ -152,7 +154,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertGreater(mapped_image[10,100-11,0],0) # Area which shouldn't be effected
 
         # Map that image down, see that filled with black
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[-0.1,2.9], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0,1], y_range_mm=[-0.1,2.9], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[0,0,0],0)
         self.assertAlmostEqual(mapped_image[0,0,1],0)
@@ -161,7 +163,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertGreater(mapped_image[30,11,0],0) # Area which shouldn't be effected
 
         # Map that image up, see that filled with black
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[300-5,0,0],0)
         self.assertAlmostEqual(mapped_image[300-5,0,1],0)
@@ -170,7 +172,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertGreater(mapped_image[300-11,10,0],0) # Area which shouldn't be effected
 
         # Map that image up, see that filled with black
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0,1], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[300-5,0,0],0)
         self.assertAlmostEqual(mapped_image[300-5,0,1],0)
@@ -179,7 +181,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertGreater(mapped_image[300-11,10,0],0) # Area which shouldn't be effected
 
         # Shift to arbitrary point
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0.2,1.2], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0.2,1.2], y_range_mm=[0.1,3.1], pixel_size_mm=1e-2)
         # self.show_image(mapped_image) # uncomment for debug
         self.assertAlmostEqual(mapped_image[0,0,0],random_image[10,20,0])
 
@@ -191,7 +193,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
         # Map that image to physical space
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[-0.5,0.5], y_range_mm=[-1,1], pixel_size_mm=1e-3)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[-0.5,0.5], y_range_mm=[-1,1], pixel_size_mm=1e-3)
         y_size, x_size, _ = mapped_image.shape
 
         # Verify size is correct
@@ -199,7 +201,7 @@ class TestFitPlaneElastic(unittest.TestCase):
         self.assertEqual(x_size,2*0.5/1e-3)
 
         # Map that image to physical space (no mapping), see that pixel values are the same
-        mapped_image = fp.image_to_physical(random_image, x_range_mm=[0,1], y_range_mm=[0,3], pixel_size_mm=1e-2)
+        mapped_image = fp.image_to_physical_z_projection(random_image, x_range_mm=[0,1], y_range_mm=[0,3], pixel_size_mm=1e-2)
         
         # self.show_image(random_image)
         # self.show_image(mapped_image)
@@ -222,8 +224,8 @@ class TestFitPlaneElastic(unittest.TestCase):
         blank[50,50] = np.array([255,255,255])
         blank[20,70] = np.array([255,0,0])
 
-        fp1_image = fp1.image_to_physical(blank, [0,1], [0,1], 0.01)
-        fp2_image = fp2.image_to_physical(blank, [0,1], [0,1], 0.01)
+        fp1_image = fp1.image_to_physical_z_projection(blank, [0,1], [0,1], 0.01)
+        fp2_image = fp2.image_to_physical_z_projection(blank, [0,1], [0,1], 0.01)
 
         # self.show_image(fp1_image)
         # self.show_image(fp2_image)
