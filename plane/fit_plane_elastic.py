@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from typing import Tuple, Union
 from numpy.typing import NDArray
+import cv2
 
 class FitPlaneElastic:
     """
@@ -196,8 +197,7 @@ class FitPlaneElastic:
         Project a 2D image into physical space and collapse along the z-axis.
 
         Notes:
-            1. The (u, v) -> (x, y, z) mapping is implemented in the parent class.
-            2. This function embeds `cv2_image` into physical space using that
+            1. This function embeds `cv2_image` into physical space using that
                mapping, then flattens the result along the z dimension to form
                a 2D projection.
 
@@ -281,11 +281,10 @@ class FitPlaneElastic:
         Embed a 2D image into a 3D physical volume.
 
         Notes:
-            1. The (u, v) -> (x, y, z) mapping is implemented in the parent class.
-            2. This function generates a 3D volume with `cv2_image` embedded according
+            1. This function generates a 3D volume with `cv2_image` embedded according
                to that mapping. 
-            3. Output volume limits are given by `x_range_mm`, `y_range_mm`, and `z_range_mm`
-            4. `cv2_image` "thickness" in the volume is set by `image_thickness_mm`.
+            2. Output volume limits are given by `x_range_mm`, `y_range_mm`, and `z_range_mm`
+            3. `cv2_image` "thickness" in the volume is set by `image_thickness_mm`.
         
         Args:
             cv2_image: Source image (OpenCV grayscale H×W or color H×W×3).
@@ -300,9 +299,60 @@ class FitPlaneElastic:
             - Grayscale: shape (z, y, x)
             - Color:     shape (z, y, x, 3)
             Voxels not covered by the projection are filled with NaN.
-        """
-        pass
+        # """
+        width_px  = int((x_range_mm[1] - x_range_mm[0]) / pixel_size_mm)
+        height_px = int((y_range_mm[1] - y_range_mm[0]) / pixel_size_mm)
+        depth_px  = int((z_range_mm[1] - z_range_mm[0]) / pixel_size_mm)
+
+        x_mm = np.linspace(x_range_mm[0], x_range_mm[1], width_px)
+        y_mm = np.linspace(y_range_mm[0], y_range_mm[1], height_px)
+        z_mm = np.linspace(z_range_mm[0], z_range_mm[1], depth_px)
+
+        xx, yy, zz = np.meshgrid(x_mm, y_mm, z_mm, indexing="xy")  # (H, W, D)
+        points = np.stack([xx.ravel(), yy.ravel(), zz.ravel()], axis=1)
+
+        # map xyz to image space sampling
+        uv = self.get_uv_from_xyz(points)  # shape (2, N)
+        u_coords, v_coords = uv[:,0], uv[:,1]
+
+        # Reshape for broadcasting
+        coords = [v_coords.reshape(height_px, width_px, depth_px),
+                u_coords.reshape(height_px, width_px, depth_px)]
+
+        if cv2_image.ndim == 3:  # color
+            channels = []
+            for c in range(cv2_image.shape[2]):
+                channel = map_coordinates(
+                    cv2_image[..., c],
+                    coords,
+                    order=3,  
+                    mode="constant",
+                    cval=np.nan
+                )
+                channels.append(channel)
+            vol = np.stack(channels, axis=-1)
+        else:  # grayscale
+            vol = map_coordinates(
+                cv2_image,
+                coords,
+                order=3,
+                mode="constant",
+                cval=np.nan
+            )
+
+        # back-project to get Z depths
+        back_project_xyz = self.get_xyz_from_uv(uv)
+        dist = np.linalg.norm(points - back_project_xyz, axis=1)
+        mask = dist <= (image_thickness_mm / 2)
+        mask = mask.reshape(height_px, width_px, depth_px)
+        vol[~mask] = np.nan
         
+        # Reorder to Z, Y, X, C
+        if cv2_image.ndim == 3:
+            vol = np.transpose(vol, (2, 0, 1, 3))
+        else:
+            vol = np.transpose(vol, (2, 0, 1))
+        return vol
 
     def _split_vector_to_in_plane_and_out_plane(
             self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
