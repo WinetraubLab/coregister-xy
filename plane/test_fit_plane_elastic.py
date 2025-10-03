@@ -46,9 +46,9 @@ class TestFitPlaneElastic(unittest.TestCase):
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, template_positions_xyz_mm_perturbed, smoothing=0.5, print_inputs=False)
         xyz = fp.get_xyz_from_uv(self.fluorescent_image_points_positions_uv_pix)
         uv = fp.get_uv_from_xyz(xyz)
-        # Max UV reprojection error
+        # Max UV reprojection error in px
         error = np.linalg.norm(uv - self.fluorescent_image_points_positions_uv_pix, axis=1)
-        assert np.max(error) < 0.25
+        assert np.max(error) < 0.25 # pixels
 
     def test_uv_to_xyz_back_to_uv(self):
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm, print_inputs=False)

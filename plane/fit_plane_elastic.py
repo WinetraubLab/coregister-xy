@@ -157,22 +157,6 @@ class FitPlaneElastic:
 
         xyz_pts = (1 - self.smoothing) * tps_pts + self.smoothing * affine_pts
         return xyz_pts
-
-    def get_xyz_from_uv_affine(self, uv_pix):
-        """
-        Transforms UV points to XYZ using affine transformation.
-
-        Args:
-            uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
-
-        Returns:
-            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
-        """
-        uv_pix = np.array(uv_pix)
-        if uv_pix.ndim == 1:
-            uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
-        assert(uv_pix.shape[1] == 2) # Make sure that shape of input is (n, 2)
-        return self.uv_to_xyz_affine_interpolator.predict(uv_pix)
     
     def get_uv_from_xyz(self, xyz_mm):
         """
@@ -382,7 +366,7 @@ class FitPlaneElastic:
             Computes the difference between elastic and affine transformation, split to in plane and out-plane.
         """
         xyz_elastic = self.get_xyz_from_uv(uv_pix)
-        xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
+        xyz_affine = self.uv_to_xyz_affine_interpolator.predict(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
 
     def plot_explore_anchor_points_fit_quality(
@@ -399,9 +383,9 @@ class FitPlaneElastic:
 
         # Capture anchor points raw and fit
         if use_elastic_fit:
-            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+            plane_fit_xyz_mm = self.get_xyz_from_uv(self.anchor_points_uv_pix).squeeze()
         else:
-            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv_affine(t) for t in self.anchor_points_uv_pix]).squeeze()
+            plane_fit_xyz_mm = self.uv_to_xyz_affine_interpolator.predict(self.anchor_points_uv_pix).squeeze()
 
         # Split coordinates to in plane and out of plane
         if coordinate_system == 'physical':
