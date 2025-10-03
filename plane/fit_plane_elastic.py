@@ -22,8 +22,8 @@ class FitPlaneElastic:
         Args:
             anchor_points_uv_pix: These are the positions of anchor points on the image (uv) as a numpy array of shape (n, 2).
             anchor_points_xyz_mm: These are the same points in physical space (xyz) as a numpy array of shape (n, 3).
-            smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0.
-                Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
+            smoothing: Smoothing parameter, float in [0,1]. The interpolator perfectly fits the data when this is set to 0.
+                0 means fully elastic mapping (perfect fit to points), 1 means fully affine mapping.
             print_inputs: If True, print the inputs for debugging.
             consistency_check: If True, will perform consistency checks.
         """
@@ -48,13 +48,21 @@ class FitPlaneElastic:
         self.anchor_points_xyz_mm = anchor_points_xyz_mm
         self.anchor_points_uv_pix = anchor_points_uv_pix
 
+        # Fit linear (affine) interpolators
+        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
+        
+        self.xyz_to_uv_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.xyz_to_uv_affine_interpolator.fit(anchor_points_xyz_mm, anchor_points_uv_pix)
+
+        self.smoothing = smoothing
+
         # Create forward interpolator (uv -> xyz)
         self.uv_to_xyz_elastic_interpolator = RBFInterpolator(
             anchor_points_uv_pix,  # 2D source points (uv)
             anchor_points_xyz_mm,  # 3D target points (xyz)
             kernel='thin_plate_spline',
             neighbors=None,  # Use all points for interpolation
-            smoothing=smoothing
         )
 
         # Create inverse interpolator (xyz -> uv)
@@ -73,7 +81,6 @@ class FitPlaneElastic:
                 anchor_points_uv_pix,
                 kernel='thin_plate_spline',
                 neighbors=None,
-                smoothing=smoothing
             )
         self.xyz_to_uv_elastic_interpolator = create_inverse_interpolator()
 
@@ -86,13 +93,9 @@ class FitPlaneElastic:
             if np.any(distance_error_um > 1):  # Consistency under 1 micron is okay!
                 raise AssertionError(
                     f"Inverse consistency check failed (distance_error = {distance_error_um:.0f} um). "
-                    "Check that the anchor points are not in an evenly spaced grid, or reduce smoothing parameter."
+                    "Check that the anchor points are not in an evenly spaced grid."
             )
 
-        # Fit a linear (affine) interpolator
-        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
-        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
-    
     @classmethod
     def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
         """
@@ -101,14 +104,15 @@ class FitPlaneElastic:
         Args:
             anchor_points_uv_pix: These are the positions of anchor points on the image (uv) as a numpy array of shape (n, 2).
             anchor_points_xyz_mm: These are the same points in physical space (xyz) as a numpy array of shape (n, 3).
-            smoothing: Smoothing parameter. The interpolator perfectly fits the data when this is set to 0. 
+            smoothing: Smoothing parameter, float in [0,1]. The interpolator perfectly fits the data when this is set to 0.
+                0 means fully elastic mapping (perfect fit to points), 1 means fully affine mapping.
             Larger values result in more regularization and a more relaxed fit. Recommended value range: 1e-6 to 1 (start small)
             print_inputs: If True, print the inputs for debugging.
 
         Returns:
             A FitPlaneElastic object.
         """
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=smoothing)
 
     def normal(self):
         """
@@ -147,23 +151,12 @@ class FitPlaneElastic:
         uv_pix = np.array(uv_pix)
         if uv_pix.ndim == 1:
             uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
-        return self.uv_to_xyz_elastic_interpolator(uv_pix)
 
-    def get_xyz_from_uv_affine(self, uv_pix):
-        """
-        Transforms UV points to XYZ using affine transformation.
+        tps_pts = self.uv_to_xyz_elastic_interpolator(uv_pix)
+        affine_pts = self.uv_to_xyz_affine_interpolator.predict(uv_pix)
 
-        Args:
-            uv_pix: 2D uv coordinates as a numpy array of shape (n, 2).
-
-        Returns:
-            3D xyz coordinates as a numpy array of shape (n, 3), units are mm.
-        """
-        uv_pix = np.array(uv_pix)
-        if uv_pix.ndim == 1:
-            uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
-        assert(uv_pix.shape[1] == 2) # Make sure that shape of input is (n, 2)
-        return self.uv_to_xyz_affine_interpolator.predict(uv_pix)
+        xyz_pts = (1 - self.smoothing) * tps_pts + self.smoothing * affine_pts
+        return xyz_pts
     
     def get_uv_from_xyz(self, xyz_mm):
         """
@@ -183,7 +176,11 @@ class FitPlaneElastic:
 
         # Since RBFInterpolator cannot map 3D -> 2D, we lower the dimensions by focusing on in plane vectors
         in_plane_xyz_mm, _ = self._split_vector_to_in_plane_and_out_plane(xyz_mm, output_coordinate_system='plane')
-        return self.xyz_to_uv_elastic_interpolator(in_plane_xyz_mm)
+        tps_pts = self.xyz_to_uv_elastic_interpolator(in_plane_xyz_mm)
+        affine_pts = self.xyz_to_uv_affine_interpolator.predict(xyz_mm)
+
+        uv_pts = (1 - self.smoothing) * tps_pts + self.smoothing * affine_pts
+        return uv_pts
     
     def image_to_physical_z_projection(
             self,
@@ -418,7 +415,7 @@ class FitPlaneElastic:
             Computes the difference between elastic and affine transformation, split to in plane and out-plane.
         """
         xyz_elastic = self.get_xyz_from_uv(uv_pix)
-        xyz_affine = self.get_xyz_from_uv_affine(uv_pix)
+        xyz_affine = self.uv_to_xyz_affine_interpolator.predict(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
 
     def plot_explore_anchor_points_fit_quality(
@@ -435,9 +432,9 @@ class FitPlaneElastic:
 
         # Capture anchor points raw and fit
         if use_elastic_fit:
-            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv(t) for t in self.anchor_points_uv_pix]).squeeze()
+            plane_fit_xyz_mm = self.get_xyz_from_uv(self.anchor_points_uv_pix).squeeze()
         else:
-            plane_fit_xyz_mm = np.array([self.get_xyz_from_uv_affine(t) for t in self.anchor_points_uv_pix]).squeeze()
+            plane_fit_xyz_mm = self.uv_to_xyz_affine_interpolator.predict(self.anchor_points_uv_pix).squeeze()
 
         # Split coordinates to in plane and out of plane
         if coordinate_system == 'physical':
