@@ -351,12 +351,15 @@ class FitPlaneElastic:
         return vol
 
     def _split_vector_to_in_plane_and_out_plane(
-            self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
+            self, vec_xyz_mm, custom_plane_normal = None, output_coordinate_system='physical'):
         """
         Given a vector, split it into plane and out-plane components.
         Args:
             vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
-            forced_plane_normal: When set to 3D vector, will override plane normal to provided vector
+            custom_plane_normal: This parameter allows the user to define a custom 3D unit vector that represents the
+                normal of an arbitrary plane. By default, the function uses the inherent normal of the fit_plane to
+                split vectors into in-plane and out-plane components. However, when the user provides a custom normal,
+                the function will base the split on the user-specified plane instead.
             output_coordinate_system: When set to 'physical' (default) then in_plane, out_plane will be 3D vectors (x,y,z)
                 When set to 'plane' then in_plane will be a 2D vector in plane coordinates, out_plane will be 1D vector
                 depicting out of plane coordinate
@@ -376,11 +379,11 @@ class FitPlaneElastic:
             flatten_output = False
 
         # Get the normal
-        if forced_plane_normal is None:
+        if custom_plane_normal is None:
             normal = self.normal()
         else:
-            assert np.allclose(np.linalg.norm(forced_plane_normal),1)
-            normal = np.array(forced_plane_normal)
+            assert np.allclose(np.linalg.norm(custom_plane_normal),1)
+            normal = np.array(custom_plane_normal)
         normal_repeated = np.tile(normal.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
 
         # Project vector on normal direction to get the out of plane direction
