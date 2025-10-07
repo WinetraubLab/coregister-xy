@@ -426,7 +426,8 @@ class FitPlaneElastic:
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
 
     def plot_explore_anchor_points_fit_quality(
-            self, figure_title="", coordinate_system='physical', use_elastic_fit=True):
+            self, figure_title="", coordinate_system='physical', use_elastic_fit=True,
+            custom_plane_normal = None):
         """
             Plot how well the plane fit matches anchor points
 
@@ -436,6 +437,11 @@ class FitPlaneElastic:
                     If using 'physical', will plot errors in XY and XZ coordinates.
                     If using 'plane', will plot errors in in_plane and out_plane.
                 use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
+                custom_plane_normal: If coordinate_system='plane', this parameter allows the user to define a custom 3D
+                    unit vector that represents the normal of an arbitrary plane. By default, the function uses the
+                    inherent normal of the fit_plane to split vectors into in-plane and out-plane components.
+                    However, when the user provides a custom normal, the function will base the split on the
+                    user-specified plane instead.
         """
 
         # Capture anchor points raw and fit
@@ -451,10 +457,12 @@ class FitPlaneElastic:
             normal_axis = [0, 0, 1] # Z
             conj_axis = [0, 1, 0] # Y
         else:
-            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(plane_fit_xyz_mm, output_coordinate_system='plane')
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(
+                plane_fit_xyz_mm, custom_plane_normal = custom_plane_normal, output_coordinate_system='plane')
             plane_fit_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(self.anchor_points_xyz_mm, output_coordinate_system='plane')
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(
+                self.anchor_points_xyz_mm,  custom_plane_normal = custom_plane_normal, output_coordinate_system='plane')
             anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
             normal_axis = self.normal()
