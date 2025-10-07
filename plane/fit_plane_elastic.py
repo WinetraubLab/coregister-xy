@@ -425,8 +425,9 @@ class FitPlaneElastic:
 
             Args:
                 figure_title: figure title if exists.
-                coordinate_system: can be 'physical' (default) or 'fit'. If using physical, will plot errors in XY and
-                    XZ coordinates. If using fit, will plot errors in in_plane and out_plane.
+                coordinate_system: can be 'physical' (default) or 'plane'.
+                    If using 'physical', will plot errors in XY and XZ coordinates.
+                    If using 'plane', will plot errors in in_plane and out_plane.
                 use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
         """
 
@@ -468,11 +469,12 @@ class FitPlaneElastic:
             plt.xlabel("X [mm]")
             plt.ylabel("Y [mm]")
             plt.title("XY Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         else:
-            normal_axis
             plt.xlabel("X [mm]\n[1, 0, 0]")
             plt.ylabel(f"Conj Axis [mm]\n[{conj_axis[0]:.2f}, {conj_axis[1]:.2f}, {conj_axis[2]:.2f}]")
             plt.title("In Plane Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         plt.grid(True)
         plt.legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
 
@@ -490,10 +492,12 @@ class FitPlaneElastic:
             plt.xlabel("X [mm]")
             plt.ylabel("Z [mm]")
             plt.title("XZ Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         else:
             plt.xlabel("X [mm]\n[1, 0, 0]")
             plt.ylabel(f"Normal Axis [mm]\n[{normal_axis[0]:.2f}, {normal_axis[1]:.2f}, {normal_axis[2]:.2f}]")
             plt.title("Out of Plane Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         plt.grid(True)
 
         # Error Histogram
