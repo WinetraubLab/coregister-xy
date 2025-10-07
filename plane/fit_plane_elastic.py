@@ -465,7 +465,10 @@ class FitPlaneElastic:
                 self.anchor_points_xyz_mm,  custom_plane_normal = custom_plane_normal, output_coordinate_system='plane')
             anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-            normal_axis = self.normal()
+            if custom_plane_normal is None:
+                normal_axis = self.normal()
+            else:
+                normal_axis = custom_plane_normal
             conj_axis = -np.cross(np.array([1,0,0]), normal_axis)  # Conj
 
         # Set up  figure
