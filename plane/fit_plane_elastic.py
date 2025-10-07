@@ -539,7 +539,7 @@ class FitPlaneElastic:
             plt.xlabel('Z Error [um]')
             plt.title(f'Histogram Z Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         else:
-            plt.xlabel('In Out-Plane Error [um]')
+            plt.xlabel('Out-Plane Error [um]')
             plt.title(f'Histogram Out-Plane Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         plt.ylabel('Frequency')
 
