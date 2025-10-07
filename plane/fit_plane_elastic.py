@@ -361,8 +361,12 @@ class FitPlaneElastic:
                 When set to 'plane' then in_plane will be a 2D vector in plane coordinates, out_plane will be 1D vector
                 depicting out of plane coordinate
         Outputs:
-            in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
-            out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
+            in_plane: 3D xyz coordinates as a numpy array.
+                If output_coordinate_system='physical', then shape is (n, 3).
+                If output_coordinate_system='plane', then shape is (n, 2).
+            out_plane: 3D xyz coordinates as a numpy array.
+                If output_coordinate_system='physical', then shape is (n, 3).
+                If output_coordinate_system='plane', then shape is (n, 1).
         """
         vec_xyz_mm = np.array(vec_xyz_mm)
         if vec_xyz_mm.ndim == 1:
