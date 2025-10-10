@@ -6,8 +6,6 @@ from sklearn.linear_model import LinearRegression
 from typing import Tuple, Union
 from numpy.typing import NDArray
 
-from plane.fit_plane import FitPlane
-
 class FitPlaneElastic:
     """
     A class to perform 2D-to-3D Thin Plate Spline (TPS) transformations using RBFInterpolator.
@@ -51,7 +49,11 @@ class FitPlaneElastic:
         self.anchor_points_uv_pix = anchor_points_uv_pix
 
         # Fit linear (affine) interpolators
-        self.affine_fp = FitPlane.from_points(anchor_points_uv_pix, anchor_points_xyz_mm)
+        self.uv_to_xyz_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.uv_to_xyz_affine_interpolator.fit(anchor_points_uv_pix, anchor_points_xyz_mm)
+        
+        self.xyz_to_uv_affine_interpolator = LinearRegression(fit_intercept=True)
+        self.xyz_to_uv_affine_interpolator.fit(anchor_points_xyz_mm, anchor_points_uv_pix)
 
         self.smoothing = smoothing
 
@@ -151,7 +153,7 @@ class FitPlaneElastic:
             uv_pix = uv_pix[np.newaxis, :]  # Add batch dimension for single point
 
         tps_pts = self.uv_to_xyz_elastic_interpolator(uv_pix)
-        affine_pts = self.affine_fp.get_xyz_from_uv(uv_pix)
+        affine_pts = self.uv_to_xyz_affine_interpolator.predict(uv_pix)
 
         xyz_pts = (1 - self.smoothing) * tps_pts + self.smoothing * affine_pts
         return xyz_pts
@@ -175,7 +177,7 @@ class FitPlaneElastic:
         # Since RBFInterpolator cannot map 3D -> 2D, we lower the dimensions by focusing on in plane vectors
         in_plane_xyz_mm, _ = self._split_vector_to_in_plane_and_out_plane(xyz_mm, output_coordinate_system='plane')
         tps_pts = self.xyz_to_uv_elastic_interpolator(in_plane_xyz_mm)
-        affine_pts = self.affine_fp.get_uv_from_xyz(xyz_mm)
+        affine_pts = self.xyz_to_uv_affine_interpolator.predict(xyz_mm)
 
         uv_pts = (1 - self.smoothing) * tps_pts + self.smoothing * affine_pts
         return uv_pts
@@ -413,7 +415,7 @@ class FitPlaneElastic:
             Computes the difference between elastic and affine transformation, split to in plane and out-plane.
         """
         xyz_elastic = self.get_xyz_from_uv(uv_pix)
-        xyz_affine = self.affine_fp.get_xyz_from_uv(uv_pix)
+        xyz_affine = self.uv_to_xyz_affine_interpolator.predict(uv_pix)
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
 
     def plot_explore_anchor_points_fit_quality(
@@ -432,7 +434,7 @@ class FitPlaneElastic:
         if use_elastic_fit:
             plane_fit_xyz_mm = self.get_xyz_from_uv(self.anchor_points_uv_pix).squeeze()
         else:
-            plane_fit_xyz_mm = self.affine_fp.get_xyz_from_uv(self.anchor_points_uv_pix).squeeze()
+            plane_fit_xyz_mm = self.uv_to_xyz_affine_interpolator.predict(self.anchor_points_uv_pix).squeeze()
 
         # Split coordinates to in plane and out of plane
         if coordinate_system == 'physical':

@@ -13,11 +13,11 @@ class TestFitPlane(unittest.TestCase):
         self.template_center_positions_xyz_mm = [[0,1,0],[1,0,0],[1,1,0]]
 
     def test_main_function_runs(self):
-        FitPlane.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
-        FitPlane.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=True)
 
     def test_fit_mapping(self):
-        fp = FitPlane.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         self.assertAlmostEqual(fp.u[0], 1)
         self.assertAlmostEqual(fp.u[1], 0)
         self.assertAlmostEqual(fp.u[2], 0)
@@ -37,7 +37,7 @@ class TestFitPlane(unittest.TestCase):
             p2 = np.array(u) * p[0] + np.array(v) * p[1] + np.array(h)
             xyz.append(p2)
         
-        fp = FitPlane.from_points(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
         for i in range(0,3):
                 self.assertAlmostEqual(u[i], fp.u[i])
                 self.assertAlmostEqual(v[i], fp.v[i])
@@ -97,7 +97,7 @@ class TestFitPlane(unittest.TestCase):
         self.assertAlmostEqual(2, b[1])
 
     def test_distance_metrics(self):
-        fp = FitPlane.from_points(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, self.template_center_positions_xyz_mm, print_inputs=False)
         i,o = fp.get_template_center_positions_distance_metrics(np.array(self.template_center_positions_uv_pix), np.array(self.template_center_positions_xyz_mm))
         self.assertAlmostEqual(i,0)
         self.assertAlmostEqual(o,0)
@@ -113,7 +113,7 @@ class TestFitPlane(unittest.TestCase):
             xyz.append(p2)
             # manually perturb original points
             xyz_2.append([p2[0]-1, p2[1], p2[2]-5])
-        fp = FitPlane.from_points(self.template_center_positions_uv_pix, xyz, print_inputs=False)
+        fp = FitPlane.from_template_centers(self.template_center_positions_uv_pix, xyz, print_inputs=False)
         i,o = fp.get_template_center_positions_distance_metrics(self.template_center_positions_uv_pix, np.array(xyz_2))
         self.assertAlmostEqual(i,1)
         self.assertAlmostEqual(o,5)
@@ -121,15 +121,15 @@ class TestFitPlane(unittest.TestCase):
     def test_error_raised_when_input_shape_is_wrong(self):
         # Check number of elements in uv vector different from number of elements in xyz vector 
         with self.assertRaises(ValueError):    
-            FitPlane.from_points([[0,1],[0,2],[0,3]],[[0,1,0],[0,2,0]])
+            FitPlane.from_template_centers([[0,1],[0,2],[0,3]],[[0,1,0],[0,2,0]])
 
         # Check number of elements in uv vector is not two
         with self.assertRaises(ValueError):
-            FitPlane.from_points([[0,1],[0,2],[0,3]],[[0,1],[0,2],[0,3]])
+            FitPlane.from_template_centers([[0,1],[0,2],[0,3]],[[0,1],[0,2],[0,3]])
 
         # Check number of elements in xyz vector is not three
         with self.assertRaises(ValueError):
-            FitPlane.from_points([[0,1,0],[0,2,0],[0,3,0]],[[0,1,0],[0,2,0],[0,3,0]])
+            FitPlane.from_template_centers([[0,1,0],[0,2,0],[0,3,0]],[[0,1,0],[0,2,0],[0,3,0]])
 
     def test_fit_with_force_normal_constrains(self):
         uv = [[0,0],[1,0],[0,1]]
@@ -140,15 +140,15 @@ class TestFitPlane(unittest.TestCase):
 
         # Make sure un-forced version doesn't point in the norm direction.
         # This is an evaluation of the test's effectiveness.
-        fp = FitPlane.from_points(uv,xyz)
+        fp = FitPlane.from_template_centers(uv,xyz)
         self.assertLess(np.dot(n,np.array([0,0,1])),0.9)
 
         # Make sure plane fitted norm fits the desired direction.
-        fp_n = FitPlane.from_points(uv,xyz, forced_plane_normal = n)
+        fp_n = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = n)
         self.assertAlmostEqual(np.dot(fp_n.normal_direction(),n),1, places=1)
 
         # Fit with constrain, but the constrain is not needed, as it is being satisfied anyways.
-        fp2 = FitPlane.from_points(uv,xyz, forced_plane_normal = fp.normal_direction())
+        fp2 = FitPlane.from_template_centers(uv,xyz, forced_plane_normal = fp.normal_direction())
         self.assertAlmostEqual(fp.u[0],fp2.u[0])
         self.assertAlmostEqual(fp.u[1],fp2.u[1])
         self.assertAlmostEqual(fp.u[2],fp2.u[2])
@@ -163,7 +163,7 @@ class TestFitPlane(unittest.TestCase):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
-        fp = FitPlane.from_points(uv,xyz)
+        fp = FitPlane.from_template_centers(uv,xyz)
         random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
         # Map that image to physical space
@@ -184,12 +184,12 @@ class TestFitPlane(unittest.TestCase):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
-        fp1 = FitPlane.from_points(uv,xyz)
+        fp1 = FitPlane.from_template_centers(uv,xyz)
 
         # Slightly different plane shifted over by 10
         uv = [[10,0],[110,0],[10,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
-        fp2 = FitPlane.from_points(uv,xyz)
+        fp2 = FitPlane.from_template_centers(uv,xyz)
 
         np.random.seed(42)
         blank = np.zeros((300, 100, 3))
@@ -212,7 +212,7 @@ class TestFitPlane(unittest.TestCase):
         # Create dummy plane with a random image
         uv = [[0,0],[100,0],[0,300]] # pix
         xyz = [[0,0,0],[1,0,0],[0,3,0]] # mm
-        fp = FitPlane.from_points(uv,xyz)
+        fp = FitPlane.from_template_centers(uv,xyz)
         np.random.seed(42)
         random_image = np.random.randint(0, 256, (300, 100, 3), dtype=np.uint8) # 100 by 300 noise
 
