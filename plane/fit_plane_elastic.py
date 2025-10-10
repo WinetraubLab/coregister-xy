@@ -351,18 +351,25 @@ class FitPlaneElastic:
         return vol
 
     def _split_vector_to_in_plane_and_out_plane(
-            self, vec_xyz_mm, forced_plane_normal = None, output_coordinate_system='physical'):
+            self, vec_xyz_mm, custom_plane_normal = None, output_coordinate_system='physical'):
         """
         Given a vector, split it into plane and out-plane components.
         Args:
             vec_xyz_mm: 3D xyz coordinates as a numpy array of shape (n, 3).
-            forced_plane_normal: When set to 3D vector, will override plane normal to provided vector
+            custom_plane_normal: This parameter allows the user to define a custom 3D unit vector that represents the
+                normal of an arbitrary plane. By default, the function uses the inherent normal of the fit_plane to
+                split vectors into in-plane and out-plane components. However, when the user provides a custom normal,
+                the function will base the split on the user-specified plane instead.
             output_coordinate_system: When set to 'physical' (default) then in_plane, out_plane will be 3D vectors (x,y,z)
                 When set to 'plane' then in_plane will be a 2D vector in plane coordinates, out_plane will be 1D vector
                 depicting out of plane coordinate
         Outputs:
-            in_plane: 3D xyz coordinates as a numpy array of shape (n, 3).
-            out_plane: 3D xyz coordinates as a numpy array of shape (n, 2).
+            in_plane: 3D xyz coordinates as a numpy array.
+                If output_coordinate_system='physical', then shape is (n, 3).
+                If output_coordinate_system='plane', then shape is (n, 2).
+            out_plane: 3D xyz coordinates as a numpy array.
+                If output_coordinate_system='physical', then shape is (n, 3).
+                If output_coordinate_system='plane', then shape is (n, 1).
         """
         vec_xyz_mm = np.array(vec_xyz_mm)
         if vec_xyz_mm.ndim == 1:
@@ -372,11 +379,11 @@ class FitPlaneElastic:
             flatten_output = False
 
         # Get the normal
-        if forced_plane_normal is None:
+        if custom_plane_normal is None:
             normal = self.normal()
         else:
-            assert np.allclose(np.linalg.norm(forced_plane_normal),1)
-            normal = np.array(forced_plane_normal)
+            assert np.allclose(np.linalg.norm(custom_plane_normal),1)
+            normal = np.array(custom_plane_normal)
         normal_repeated = np.tile(normal.reshape(1, -1), (vec_xyz_mm.shape[0], 1))
 
         # Project vector on normal direction to get the out of plane direction
@@ -419,15 +426,22 @@ class FitPlaneElastic:
         return self._split_vector_to_in_plane_and_out_plane(xyz_elastic - xyz_affine)
 
     def plot_explore_anchor_points_fit_quality(
-            self, figure_title="", coordinate_system='physical', use_elastic_fit=True):
+            self, figure_title="", coordinate_system='physical', use_elastic_fit=True,
+            custom_plane_normal = None):
         """
             Plot how well the plane fit matches anchor points
 
             Args:
                 figure_title: figure title if exists.
-                coordinate_system: can be 'physical' (default) or 'fit'. If using physical, will plot errors in XY and
-                    XZ coordinates. If using fit, will plot errors in in_plane and out_plane.
+                coordinate_system: can be 'physical' (default) or 'plane'.
+                    If using 'physical', will plot errors in XY and XZ coordinates.
+                    If using 'plane', will plot errors in in_plane and out_plane.
                 use_elastic_fit: set to True to use elastic fit (default) or false to use affine fit.
+                custom_plane_normal: If coordinate_system='plane', this parameter allows the user to define a custom 3D
+                    unit vector that represents the normal of an arbitrary plane. By default, the function uses the
+                    inherent normal of the fit_plane to split vectors into in-plane and out-plane components.
+                    However, when the user provides a custom normal, the function will base the split on the
+                    user-specified plane instead.
         """
 
         # Capture anchor points raw and fit
@@ -443,13 +457,18 @@ class FitPlaneElastic:
             normal_axis = [0, 0, 1] # Z
             conj_axis = [0, 1, 0] # Y
         else:
-            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(plane_fit_xyz_mm, output_coordinate_system='plane')
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(
+                plane_fit_xyz_mm, custom_plane_normal = custom_plane_normal, output_coordinate_system='plane')
             plane_fit_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(self.anchor_points_xyz_mm, output_coordinate_system='plane')
+            in_p, out_p = self._split_vector_to_in_plane_and_out_plane(
+                self.anchor_points_xyz_mm,  custom_plane_normal = custom_plane_normal, output_coordinate_system='plane')
             anchor_points_xyz_mm = np.array([np.squeeze(in_p[:,0]), np.squeeze(in_p[:,1]), out_p]).transpose()
 
-            normal_axis = self.normal()
+            if custom_plane_normal is None:
+                normal_axis = self.normal()
+            else:
+                normal_axis = custom_plane_normal
             conj_axis = -np.cross(np.array([1,0,0]), normal_axis)  # Conj
 
         # Set up  figure
@@ -468,11 +487,12 @@ class FitPlaneElastic:
             plt.xlabel("X [mm]")
             plt.ylabel("Y [mm]")
             plt.title("XY Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         else:
-            normal_axis
             plt.xlabel("X [mm]\n[1, 0, 0]")
             plt.ylabel(f"Conj Axis [mm]\n[{conj_axis[0]:.2f}, {conj_axis[1]:.2f}, {conj_axis[2]:.2f}]")
             plt.title("In Plane Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         plt.grid(True)
         plt.legend( loc="upper center", bbox_to_anchor=(0.5, 1.1), ncol=2, frameon=False)
 
@@ -490,10 +510,12 @@ class FitPlaneElastic:
             plt.xlabel("X [mm]")
             plt.ylabel("Z [mm]")
             plt.title("XZ Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         else:
             plt.xlabel("X [mm]\n[1, 0, 0]")
             plt.ylabel(f"Normal Axis [mm]\n[{normal_axis[0]:.2f}, {normal_axis[1]:.2f}, {normal_axis[2]:.2f}]")
             plt.title("Out of Plane Projection of Anchor Points\n", fontsize=14)
+            plt.gca().invert_yaxis()
         plt.grid(True)
 
         # Error Histogram
@@ -517,7 +539,7 @@ class FitPlaneElastic:
             plt.xlabel('Z Error [um]')
             plt.title(f'Histogram Z Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         else:
-            plt.xlabel('In Out-Plane Error [um]')
+            plt.xlabel('Out-Plane Error [um]')
             plt.title(f'Histogram Out-Plane Errors\n(mean={np.mean(out_plane_error * 1000):.1f}um)', fontsize=14)
         plt.ylabel('Frequency')
 
