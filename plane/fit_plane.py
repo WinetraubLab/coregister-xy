@@ -18,7 +18,7 @@ class FitPlane:
             self.h = None
     
     @classmethod
-    def from_template_centers(
+    def from_points(
         cls, template_center_positions_uv_pix, template_center_positions_xyz_mm,
         forced_plane_normal = None, 
         print_inputs = False):
@@ -53,7 +53,7 @@ class FitPlane:
 
         # Print inputs
         if print_inputs:
-            txt = ("FitPlane.from_template_centers(" +
+            txt = ("FitPlane.from_points(" +
                    json.dumps(template_center_positions_uv_pix.tolist()) + "," +
                    json.dumps(template_center_positions_xyz_mm.tolist()))   
             if forced_plane_normal is not None:
