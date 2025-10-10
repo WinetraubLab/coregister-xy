@@ -357,7 +357,7 @@ class FitPlaneElastic:
             pixel_size_mm: float = 1e-3,
         ) -> NDArray[np.float32]:
         """
-        Return the Z coordinates of the warped image surface over a defined XY grid.
+        Return the Z coordinates (in mm) of the warped image surface over a defined XY grid.
 
         Args:
             x_range_mm: Physical extent along x-axis (mm).
@@ -366,7 +366,7 @@ class FitPlaneElastic:
             image_thickness_mm: Not used here but useful for alignment/visualization.
 
         Returns:
-            2D array of Z coordinates, shape (Y, X)
+            2D array of Z coordinates, shape (Y, X). Units = mm
         """
         width_px  = int((x_range_mm[1] - x_range_mm[0]) / pixel_size_mm)
         height_px = int((y_range_mm[1] - y_range_mm[0]) / pixel_size_mm)
@@ -375,12 +375,11 @@ class FitPlaneElastic:
         y_mm = np.linspace(y_range_mm[0], y_range_mm[1], height_px)
         xx, yy = np.meshgrid(x_mm, y_mm, indexing="xy")  # (H, W)
 
-        # Flatten and stack to get UV -> XYZ
         uv = self.get_uv_from_xyz(np.stack([xx.ravel(), yy.ravel(), np.zeros_like(xx.ravel())], axis=1))
-        xyz = self.get_xyz_from_uv(uv)  # Shape (N, 3)
+        xyz = self.get_xyz_from_uv(uv)  
 
-        z_surface = xyz[:, 2].reshape(height_px, width_px)  # Only Z
-        return z_surface
+        z_surface_mm = xyz[:, 2].reshape(height_px, width_px)  # Only Z
+        return z_surface_mm
 
     def _split_vector_to_in_plane_and_out_plane(
             self, vec_xyz_mm, custom_plane_normal = None, output_coordinate_system='physical'):
