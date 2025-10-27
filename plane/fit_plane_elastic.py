@@ -97,7 +97,7 @@ class FitPlaneElastic:
             )
 
     @classmethod
-    def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, print_inputs=False):
+    def from_points(cls, anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=0, consistency_check = True, print_inputs=False):
         """
         Initialize a FitPlaneElastic object using control points.
 
@@ -112,7 +112,7 @@ class FitPlaneElastic:
         Returns:
             A FitPlaneElastic object.
         """
-        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=smoothing)
+        return cls(anchor_points_uv_pix, anchor_points_xyz_mm, smoothing=smoothing, consistency_check=consistency_check)
 
     def normal(self):
         """
