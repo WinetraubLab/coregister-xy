@@ -341,7 +341,15 @@ class FitPlaneElastic:
         dist = np.linalg.norm(points - back_project_xyz, axis=1)
         mask = dist <= (image_thickness_mm / 2)
         mask = mask.reshape(height_px, width_px, depth_px)
+        vol = vol.astype(np.float32)
         vol[~mask] = np.nan
+
+        valid = ~np.isnan(vol)
+
+        vmin = np.nanmin(vol)
+        vmax = np.nanmax(vol)
+
+        vol[valid] = (vol[valid] - vmin) / (vmax - vmin)
         
         # Reorder to Z, Y, X, C
         if cv2_image.ndim == 3:
