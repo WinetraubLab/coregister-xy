@@ -369,6 +369,9 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
     and the Z coordinate of point subset A is set to 1.
+    s, R, t: T separated into scale, rotation, and translation components.
+    A : filtered inliers from OCT point set.
+    B: filtered inliers from histology point set corresponding to A.
     """
     # 1. Pairwise squared distance, log ratio matrix
     epsilon = 1e-10
@@ -400,4 +403,4 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
 
     T = _compute_affine(A, B_temp)
     s,R,t = sRt_from_N_points(A,B_temp)
-    return T, (s,R,t)
+    return T, (s,R,t), A, B
