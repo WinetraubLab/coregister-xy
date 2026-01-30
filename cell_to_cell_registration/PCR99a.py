@@ -196,8 +196,8 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
     return A, B
 
 def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
-                 plane_inlier_thresh=5, z_dist_thresh=4,
-                 penalty_threshold=8, xy_translation_penalty_weight=1):
+                 plane_inlier_thresh=5, y_dist_thresh=4,
+                 penalty_threshold=8, xz_translation_penalty_weight=1):
     """
     RANSAC round 2: plane-based inlier set refinement.
     Params:
@@ -205,11 +205,11 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
             still considered an inlier during RANSAC iterations.
-        z_dist_thresh: threshold on the distance of points to the final plane. 
+        y_dist_thresh: threshold on the distance of points to the final plane (for planes close to parallel with y-axis). 
             It defines which points are retained as the final inlier set.
-        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
+        penalty_threshold: amount of XZ translation between the two point sets that is acceptable 
             before incurring a score penalty.
-        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+        xz_translation_penalty_weight: scaling factor for how severely to penalize XZ translation beyond penalty_threshold.
     Returns:
         oct_points_final, hist_points_final: Arrays containing corresponding point pairs for selected inliers.
     """
@@ -243,7 +243,7 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
         inliers_candidate = np.where(dists <= plane_inlier_thresh)[0]
         num_inliers_candidate = len(inliers_candidate)
 
-        # Penalize large xy translations
+        # Penalize large xz translations
         A_sub = points_from_oct[:, inliers_candidate]
         B_sub = points_from_hist[:, inliers_candidate]
 
@@ -252,9 +252,9 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
         s_temp, R_temp, t_temp = sRt_from_N_points(A_sub, B_sub)
 
-        xy_trans = np.linalg.norm(t_temp[:2])
+        xz_trans = np.linalg.norm([t_temp[0], t_temp[2]])
 
-        score = num_inliers_candidate - xy_translation_penalty_weight * max(0, xy_trans - penalty_threshold)
+        score = num_inliers_candidate - xz_translation_penalty_weight * max(0, xz_trans - penalty_threshold)
 
         # Update best if score improved
         if score > best_score:
@@ -264,10 +264,10 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
     best_plane_normal = best_plane_normal / np.linalg.norm(best_plane_normal)
 
-    # Z distance to the plane (signed projection)
+    # Distance to the plane (signed projection) - for planes close to parallel with y-axis
     vecs_to_plane = points_from_oct - best_plane_point.reshape(-1, 1)  # shape (3×N)
-    z_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
-    valid_mask = z_dists <= z_dist_thresh
+    y_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
+    valid_mask = y_dists <= y_dist_thresh
 
     final_inliers = np.where(valid_mask)[0]
     A_final = points_from_oct[:, final_inliers]
@@ -347,8 +347,8 @@ def _compute_affine(A, B):
 
     return T_4x4
 
-def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
-                 penalty_threshold=8, xy_translation_penalty_weight=1):
+def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, y_dist_thresh=4,
+                 penalty_threshold=8, xz_translation_penalty_weight=1):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -360,15 +360,15 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
             still considered an inlier during RANSAC iterations.
-        z_dist_thresh: threshold on the distance of points to the final plane. 
+        y_dist_thresh: threshold on the distance of points to the final plane (for planes close to parallel with y-axis). 
             It defines which points are retained as the final inlier set.
-        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
+        penalty_threshold: amount of XZ translation between the two point sets that is acceptable 
             before incurring a score penalty.
-        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+        xz_translation_penalty_weight: scaling factor for how severely to penalize XZ translation beyond penalty_threshold.
     
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
-    and the Z coordinate of point subset A is set to 1.
+    and the Y coordinate of point subset A is set to 1.
     s, R, t: T separated into scale, rotation, and translation components.
     A : filtered inliers from OCT point set.
     B: filtered inliers from histology point set corresponding to A.
@@ -394,12 +394,12 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh)
 
     # 4. plane fit ransac
-    A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, z_dist_thresh,
-                 penalty_threshold, xy_translation_penalty_weight)
+    A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, y_dist_thresh,
+                 penalty_threshold, xz_translation_penalty_weight)
 
     # 5. Final transform
     B_temp = B.copy()
-    B_temp[2, :] = 1
+    B_temp[1, :] = 1
 
     T = _compute_affine(A, B_temp)
     s,R,t = sRt_from_N_points(A,B_temp)
