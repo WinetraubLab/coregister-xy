@@ -275,6 +275,118 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
     return A_final, B_final
 
+def enforce_one_to_one_matching(A, B, coord_tolerance=1e-6, use_xz_distance=False, pair_scores=None, use_transformation_consistency=True):
+    """
+    Enforce one-to-one matching constraint: each OCT point matches at most one hist point,
+    and each hist point matches at most one OCT point.
+    
+    Uses transformation consistency to determine which pairs are correct: computes a consensus
+    transformation and selects pairs that best fit this transformation.
+    
+    Inputs:
+        A: (3, n) array of OCT points
+        B: (3, n) array of hist points (corresponding pairs)
+        coord_tolerance: tolerance for considering two points as the same (for coordinate matching)
+        use_xz_distance: If True, use XZ distance for residual computation; otherwise use 3D distance
+        pair_scores: Optional (n,) array of scores for each pair. Lower scores = better matches.
+            If provided, will use these scores instead of transformation consistency.
+        use_transformation_consistency: If True, use transformation residual to determine best matches.
+            This evaluates how well each pair fits the overall transformation consensus.
+    
+    Returns:
+        A_unique, B_unique: (3, m) arrays with one-to-one matched pairs, m <= n
+    """
+    if A.shape[1] == 0:
+        return A, B
+    
+    n = A.shape[1]
+    
+    # Round coordinates for matching (using tolerance)
+    A_rounded = np.round(A / coord_tolerance) * coord_tolerance
+    B_rounded = np.round(B / coord_tolerance) * coord_tolerance
+    
+    # Group pairs by unique points
+    oct_groups = {}  # Maps OCT point -> list of (pair_index, hist_point)
+    hist_groups = {}  # Maps hist point -> list of (pair_index, oct_point)
+    
+    for i in range(n):
+        oct_key = tuple(A_rounded[:, i])
+        hist_key = tuple(B_rounded[:, i])
+        
+        if oct_key not in oct_groups:
+            oct_groups[oct_key] = []
+        oct_groups[oct_key].append((i, hist_key))
+        
+        if hist_key not in hist_groups:
+            hist_groups[hist_key] = []
+        hist_groups[hist_key].append((i, oct_key))
+    
+    # Compute scores for each pair
+    if pair_scores is not None:
+        # Use provided scores
+        scores = pair_scores
+    elif use_transformation_consistency:
+        # Compute transformation from all pairs and use residuals as scores
+        B_temp = B.copy()
+        B_temp[1, :] = 1  # Set Y coordinate to 1 for transformation
+        
+        try:
+            T = _compute_affine(A, B_temp)
+            # Transform A points
+            A_homogeneous = np.vstack([A, np.ones((1, A.shape[1]))])
+            A_transformed = (T @ A_homogeneous)[:3, :]
+            
+            # Compute residuals
+            if use_xz_distance:
+                # XZ in-plane residual
+                scores = np.sqrt((A_transformed[0, :] - B[0, :])**2 + (A_transformed[2, :] - B[2, :])**2)
+            else:
+                # Full 3D residual
+                scores = np.sqrt(np.sum((A_transformed - B)**2, axis=0))
+        except:
+            # Fallback to distance if transformation fails
+            if use_xz_distance:
+                scores = np.sqrt((A[0, :] - B[0, :])**2 + (A[2, :] - B[2, :])**2)
+            else:
+                scores = np.sqrt(np.sum((A - B)**2, axis=0))
+    else:
+        # Use simple distance
+        if use_xz_distance:
+            scores = np.sqrt((A[0, :] - B[0, :])**2 + (A[2, :] - B[2, :])**2)
+        else:
+            scores = np.sqrt(np.sum((A - B)**2, axis=0))
+    
+    # Greedy selection: for each unique point, keep the pair with best score
+    # that doesn't conflict with already selected pairs
+    selected_pairs = set()
+    oct_used = set()
+    hist_used = set()
+    
+    # Sort all pairs by score (best first)
+    pair_indices_sorted = np.argsort(scores)
+    
+    for i in pair_indices_sorted:
+        oct_key = tuple(A_rounded[:, i])
+        hist_key = tuple(B_rounded[:, i])
+        
+        # Skip if either point is already matched
+        if oct_key in oct_used or hist_key in hist_used:
+            continue
+        
+        # This pair is valid - add it
+        selected_pairs.add(i)
+        oct_used.add(oct_key)
+        hist_used.add(hist_key)
+    
+    if len(selected_pairs) == 0:
+        return np.array([]).reshape(3, 0), np.array([]).reshape(3, 0)
+    
+    valid_indices = sorted(selected_pairs)
+    A_unique = A[:, valid_indices]
+    B_unique = B[:, valid_indices]
+    
+    return A_unique, B_unique
+
 def plot_point_pairs(points_from_oct, points_from_hist, title="", save=False):
     """
     Visualize inlier point pairs.
@@ -348,7 +460,7 @@ def _compute_affine(A, B):
     return T_4x4
 
 def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, y_dist_thresh=4,
-                 penalty_threshold=8, xz_translation_penalty_weight=1):
+                 penalty_threshold=8, xz_translation_penalty_weight=1, enforce_one_to_one=True, coord_tolerance=1e-6, use_xz_distance=False):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -365,6 +477,11 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
         penalty_threshold: amount of XZ translation between the two point sets that is acceptable 
             before incurring a score penalty.
         xz_translation_penalty_weight: scaling factor for how severely to penalize XZ translation beyond penalty_threshold.
+        enforce_one_to_one: If True, enforce one-to-one matching constraint (each point matches at most one point).
+        coord_tolerance: Tolerance for considering two points as the same when enforcing one-to-one matching.
+        use_xz_distance: If True, use XZ distance for one-to-one matching selection; otherwise use 3D distance.
+            Note: By default, uses transformation consistency - computes a consensus transformation and selects
+            pairs that best fit this transformation (lowest residual). This is more robust than simple distance.
     
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
@@ -397,7 +514,18 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, y_dist_thresh,
                  penalty_threshold, xz_translation_penalty_weight)
 
+    # 4.5. Enforce one-to-one matching constraint
+    if enforce_one_to_one and A.shape[1] > 0:
+        # Use transformation consistency to determine which pairs are correct
+        # This evaluates how well each pair fits the overall transformation
+        A, B = enforce_one_to_one_matching(A, B, coord_tolerance, use_xz_distance, 
+                                          pair_scores=None, use_transformation_consistency=True)
+
     # 5. Final transform
+    if A.shape[1] == 0:
+        print("No valid pairs after one-to-one matching.")
+        return None, None, np.array([]).reshape(3, 0), np.array([]).reshape(3, 0)
+    
     B_temp = B.copy()
     B_temp[1, :] = 1
 
