@@ -66,6 +66,67 @@ def _score_correspondences(log_ratio_mat, thr1, bin_width=0.1):
         
         return min_costs
 
+def _compute_angle(p1, p2, p3):
+    """
+    Compute the angle at p2 formed by points p1-p2-p3.
+    Returns angle in radians.
+    """
+    v1 = p1 - p2
+    v2 = p3 - p2
+    
+    # Normalize vectors
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+    
+    if norm1 < 1e-10 or norm2 < 1e-10:
+        return np.nan
+    
+    v1 = v1 / norm1
+    v2 = v2 / norm2
+    
+    # Compute angle using dot product
+    cos_angle = np.clip(np.dot(v1, v2), -1.0, 1.0)
+    angle = np.arccos(cos_angle)
+    
+    return angle
+
+def _compute_triplet_angle_consistency(xyz_gt, xyz_est, i, j, k):
+    """
+    Compute angle consistency for a specific triplet (i, j, k).
+    Returns the maximum absolute difference between corresponding angles.
+    """
+    # Compute angles at each vertex in both point sets
+    angles_gt = []
+    angles_est = []
+    
+    # Angle at i (formed by j-i-k)
+    angle_gt_i = _compute_angle(xyz_gt[:, j], xyz_gt[:, i], xyz_gt[:, k])
+    angle_est_i = _compute_angle(xyz_est[:, j], xyz_est[:, i], xyz_est[:, k])
+    if not (np.isnan(angle_gt_i) or np.isnan(angle_est_i)):
+        angles_gt.append(angle_gt_i)
+        angles_est.append(angle_est_i)
+    
+    # Angle at j (formed by i-j-k)
+    angle_gt_j = _compute_angle(xyz_gt[:, i], xyz_gt[:, j], xyz_gt[:, k])
+    angle_est_j = _compute_angle(xyz_est[:, i], xyz_est[:, j], xyz_est[:, k])
+    if not (np.isnan(angle_gt_j) or np.isnan(angle_est_j)):
+        angles_gt.append(angle_gt_j)
+        angles_est.append(angle_est_j)
+    
+    # Angle at k (formed by i-k-j)
+    angle_gt_k = _compute_angle(xyz_gt[:, i], xyz_gt[:, k], xyz_gt[:, j])
+    angle_est_k = _compute_angle(xyz_est[:, i], xyz_est[:, k], xyz_est[:, j])
+    if not (np.isnan(angle_gt_k) or np.isnan(angle_est_k)):
+        angles_gt.append(angle_gt_k)
+        angles_est.append(angle_est_k)
+    
+    if len(angles_gt) == 0:
+        return np.inf  # Invalid triplet
+    
+    # Return maximum absolute difference
+    angle_diffs = np.abs(np.array(angles_gt) - np.array(angles_est))
+    return np.max(angle_diffs)
+
 def _enforce_one_to_one_in_inliers(xyz_gt, xyz_est, candidate_indices, errors, coord_tolerance=1e-6):
     """
     Helper function to enforce one-to-one matching when selecting inliers.
@@ -99,7 +160,7 @@ def _enforce_one_to_one_in_inliers(xyz_gt, xyz_est, candidate_indices, errors, c
     return np.array(selected, dtype=int)
 
 def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh, 
-                 enforce_one_to_one=True, coord_tolerance=1e-6):
+                 enforce_one_to_one=True, coord_tolerance=1e-6, angle_thresh=None):
     """
     This function contains the Python adaptation of the original PCR99a algorithm.
     Robustly estimate correspondences between two 3D point sets by generating hypotheses 
@@ -114,6 +175,8 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
         pcr99_inlier_thresh: Distance threshold for final inliers.
         enforce_one_to_one: If True, enforce one-to-one matching constraint during inlier selection.
         coord_tolerance: Tolerance for considering two points as the same.
+        angle_thresh: Optional threshold for angle consistency (in radians). If provided, triplets with
+            angle differences above this threshold are rejected. Lower = stricter angle consistency.
     Returns:
         A, B: arrays of corresponding inlier point pairs.
     """
@@ -160,7 +223,7 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
                 j_old = sort_idx[j]
                 k_old = sort_idx[k]
 
-                # Prescreening
+                # Prescreening: distance consistency
                 log_ratio_ij = log_ratio_mat[i_old, j_old]
                 log_ratio_jk = log_ratio_mat[j_old, k_old]
                 log_ratio_ki = log_ratio_mat[k_old, i_old]
@@ -171,6 +234,12 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
 
                 if e1 > thr1 or e2 > thr1 or e3 > thr1:
                     continue
+                
+                # Prescreening: angle consistency (if enabled)
+                if angle_thresh is not None:
+                    angle_diff = _compute_triplet_angle_consistency(xyz_gt, xyz_est, i_old, j_old, k_old)
+                    if angle_diff > angle_thresh:
+                        continue
 
                 c += 1
                 A = xyz_gt[:, [i, j, k]]
@@ -564,7 +633,7 @@ def _compute_affine(A, B):
 
 def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, y_dist_thresh=4,
                  penalty_threshold=8, xz_translation_penalty_weight=1, enforce_one_to_one=True, coord_tolerance=1e-6, use_xz_distance=False,
-                 transformation_residual_thresh=None):
+                 transformation_residual_thresh=None, angle_thresh=None):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -590,6 +659,9 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
         transformation_residual_thresh: Threshold for transformation residuals in plane RANSAC.
             Pairs with residuals above this threshold are filtered out. LOWER = STRICTER geometric consistency.
             If None, no filtering is applied. Recommended: 5-20 for tight consistency.
+        angle_thresh: Optional threshold for angle consistency in PCR99a prescreening (in radians).
+            Triplets with angle differences above this threshold are rejected. LOWER = STRICTER angle consistency.
+            If None, angle consistency is not checked. Recommended: 0.1-0.3 radians (6-17 degrees) for tight consistency.
     
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
@@ -615,9 +687,9 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     xyz_hist = xyz_hist[:, sort_idx]
     xyz_oct  = xyz_oct[:, sort_idx]
 
-    # 3. pcr (with one-to-one matching built in)
+    # 3. pcr (with one-to-one matching and angle consistency built in)
     A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh,
-                        enforce_one_to_one=enforce_one_to_one, coord_tolerance=coord_tolerance)
+                        enforce_one_to_one=enforce_one_to_one, coord_tolerance=coord_tolerance, angle_thresh=angle_thresh)
 
     # 4. plane fit ransac (with one-to-one matching and transformation consistency built in)
     A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, y_dist_thresh,
