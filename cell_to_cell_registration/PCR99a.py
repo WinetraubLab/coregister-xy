@@ -66,7 +66,40 @@ def _score_correspondences(log_ratio_mat, thr1, bin_width=0.1):
         
         return min_costs
 
-def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh):
+def _enforce_one_to_one_in_inliers(xyz_gt, xyz_est, candidate_indices, errors, coord_tolerance=1e-6):
+    """
+    Helper function to enforce one-to-one matching when selecting inliers.
+    Given candidate inlier indices and their errors, returns a subset that ensures
+    each point appears at most once.
+    """
+    if len(candidate_indices) == 0:
+        return np.array([], dtype=int)
+    
+    # Round coordinates for matching
+    xyz_gt_rounded = np.round(xyz_gt / coord_tolerance) * coord_tolerance
+    xyz_est_rounded = np.round(xyz_est / coord_tolerance) * coord_tolerance
+    
+    # Sort by error (best first)
+    sorted_idx = np.argsort(errors[candidate_indices])
+    sorted_candidates = candidate_indices[sorted_idx]
+    
+    selected = []
+    gt_used = set()
+    est_used = set()
+    
+    for idx in sorted_candidates:
+        gt_key = tuple(xyz_gt_rounded[:, idx])
+        est_key = tuple(xyz_est_rounded[:, idx])
+        
+        if gt_key not in gt_used and est_key not in est_used:
+            selected.append(idx)
+            gt_used.add(gt_key)
+            est_used.add(est_key)
+    
+    return np.array(selected, dtype=int)
+
+def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh, 
+                 enforce_one_to_one=True, coord_tolerance=1e-6):
     """
     This function contains the Python adaptation of the original PCR99a algorithm.
     Robustly estimate correspondences between two 3D point sets by generating hypotheses 
@@ -78,8 +111,9 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
         sort_idx: array (n,) Indices giving the sorted order of points (used to map triplets to original indices).
         n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
         thr1: Log-ratio consistency threshold for prescreening candidate triplets.
-        sigma: Noise scaling factor used in the inlier distance threshold.
-        thr2: Distance threshold for final inliers.
+        pcr99_inlier_thresh: Distance threshold for final inliers.
+        enforce_one_to_one: If True, enforce one-to-one matching constraint during inlier selection.
+        coord_tolerance: Tolerance for considering two points as the same.
     Returns:
         A, B: arrays of corresponding inlier point pairs.
     """
@@ -167,9 +201,18 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
                     idx = np.argmax(nInliers)
 
                     # Check if best so far
+                    candidate_inliers = np.where(E[:, idx] <= e_thr)[0]
+                    
+                    # Enforce one-to-one matching if requested
+                    if enforce_one_to_one and len(candidate_inliers) > 0:
+                        candidate_inliers = _enforce_one_to_one_in_inliers(
+                            xyz_gt, xyz_est, candidate_inliers, E[:, idx], coord_tolerance
+                        )
+                        max_nInliers = len(candidate_inliers)
+                    
                     if max_nInliers > max_max_nInliers:
                         max_max_nInliers = max_nInliers
-                        idx_inliers = np.where(E[:, idx] <= e_thr)[0]
+                        idx_inliers = candidate_inliers
                         no_improvement_iters = 0
                     else:
                         no_improvement_iters += 1
@@ -197,7 +240,8 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
 
 def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
                  plane_inlier_thresh=5, y_dist_thresh=4,
-                 penalty_threshold=8, xz_translation_penalty_weight=1):
+                 penalty_threshold=8, xz_translation_penalty_weight=1,
+                 enforce_one_to_one=True, coord_tolerance=1e-6, transformation_residual_thresh=None, use_xz_distance=False):
     """
     RANSAC round 2: plane-based inlier set refinement.
     Params:
@@ -210,6 +254,11 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
         penalty_threshold: amount of XZ translation between the two point sets that is acceptable 
             before incurring a score penalty.
         xz_translation_penalty_weight: scaling factor for how severely to penalize XZ translation beyond penalty_threshold.
+        enforce_one_to_one: If True, enforce one-to-one matching constraint during inlier selection.
+        coord_tolerance: Tolerance for considering two points as the same.
+        transformation_residual_thresh: Optional threshold for transformation residuals. Pairs with residuals
+            above this threshold are filtered out. Lower = stricter geometric consistency.
+        use_xz_distance: If True, use XZ distance for transformation residual computation.
     Returns:
         oct_points_final, hist_points_final: Arrays containing corresponding point pairs for selected inliers.
     """
@@ -269,13 +318,53 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
     y_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
     valid_mask = y_dists <= y_dist_thresh
 
-    final_inliers = np.where(valid_mask)[0]
-    A_final = points_from_oct[:, final_inliers]
-    B_final = points_from_hist[:, final_inliers]
+    candidate_inliers = np.where(valid_mask)[0]
+    
+    # Compute transformation residuals for ranking and filtering
+    ranking_errors = y_dists.copy()  # Default to plane distance for ranking
+    if len(candidate_inliers) > 0:
+        A_candidate = points_from_oct[:, candidate_inliers]
+        B_candidate = points_from_hist[:, candidate_inliers]
+        B_temp = B_candidate.copy()
+        B_temp[1, :] = 1
+        
+        try:
+            T = _compute_affine(A_candidate, B_temp)
+            A_homogeneous = np.vstack([A_candidate, np.ones((1, A_candidate.shape[1]))])
+            A_transformed = (T @ A_homogeneous)[:3, :]
+            
+            if use_xz_distance:
+                residuals = np.sqrt((A_transformed[0, :] - B_candidate[0, :])**2 + 
+                                   (A_transformed[2, :] - B_candidate[2, :])**2)
+            else:
+                residuals = np.sqrt(np.sum((A_transformed - B_candidate)**2, axis=0))
+            
+            # Use transformation residuals for ranking (better metric)
+            ranking_errors_full = np.full(points_from_oct.shape[1], np.inf)
+            ranking_errors_full[candidate_inliers] = residuals
+            ranking_errors = ranking_errors_full
+            
+            # Apply transformation residual threshold if specified
+            if transformation_residual_thresh is not None:
+                residual_mask = residuals <= transformation_residual_thresh
+                candidate_inliers = candidate_inliers[residual_mask]
+        except:
+            pass  # If transformation fails, use plane distance
+    
+    # Enforce one-to-one matching if requested
+    if enforce_one_to_one and len(candidate_inliers) > 0:
+        candidate_inliers = _enforce_one_to_one_in_inliers(
+            points_from_oct, points_from_hist, candidate_inliers, 
+            ranking_errors, coord_tolerance
+        )
+    
+    A_final = points_from_oct[:, candidate_inliers]
+    B_final = points_from_hist[:, candidate_inliers]
 
     return A_final, B_final
 
-def enforce_one_to_one_matching(A, B, coord_tolerance=1e-6, use_xz_distance=False, pair_scores=None, use_transformation_consistency=True):
+def enforce_one_to_one_matching(A, B, coord_tolerance=1e-6, use_xz_distance=False, pair_scores=None, 
+                                 use_transformation_consistency=True, transformation_residual_thresh=None):
     """
     Enforce one-to-one matching constraint: each OCT point matches at most one hist point,
     and each hist point matches at most one OCT point.
@@ -292,6 +381,9 @@ def enforce_one_to_one_matching(A, B, coord_tolerance=1e-6, use_xz_distance=Fals
             If provided, will use these scores instead of transformation consistency.
         use_transformation_consistency: If True, use transformation residual to determine best matches.
             This evaluates how well each pair fits the overall transformation consensus.
+        transformation_residual_thresh: Optional threshold for transformation residuals. Pairs with
+            residuals above this threshold will be filtered out. Lower = stricter geometric consistency.
+            If None, no filtering is applied (only ranking is used).
     
     Returns:
         A_unique, B_unique: (3, m) arrays with one-to-one matched pairs, m <= n
@@ -356,14 +448,25 @@ def enforce_one_to_one_matching(A, B, coord_tolerance=1e-6, use_xz_distance=Fals
         else:
             scores = np.sqrt(np.sum((A - B)**2, axis=0))
     
+    # Filter pairs by residual threshold if specified (for geometric consistency)
+    if transformation_residual_thresh is not None:
+        valid_mask = scores <= transformation_residual_thresh
+        if not np.any(valid_mask):
+            # If no pairs pass threshold, return empty
+            return np.array([]).reshape(3, 0), np.array([]).reshape(3, 0)
+        # Only consider pairs that pass the threshold
+        candidate_indices = np.where(valid_mask)[0]
+        candidate_scores = scores[candidate_indices]
+        pair_indices_sorted = candidate_indices[np.argsort(candidate_scores)]
+    else:
+        # Sort all pairs by score (best first)
+        pair_indices_sorted = np.argsort(scores)
+    
     # Greedy selection: for each unique point, keep the pair with best score
     # that doesn't conflict with already selected pairs
     selected_pairs = set()
     oct_used = set()
     hist_used = set()
-    
-    # Sort all pairs by score (best first)
-    pair_indices_sorted = np.argsort(scores)
     
     for i in pair_indices_sorted:
         oct_key = tuple(A_rounded[:, i])
@@ -460,7 +563,8 @@ def _compute_affine(A, B):
     return T_4x4
 
 def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, y_dist_thresh=4,
-                 penalty_threshold=8, xz_translation_penalty_weight=1, enforce_one_to_one=True, coord_tolerance=1e-6, use_xz_distance=False):
+                 penalty_threshold=8, xz_translation_penalty_weight=1, enforce_one_to_one=True, coord_tolerance=1e-6, use_xz_distance=False,
+                 transformation_residual_thresh=None):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -468,20 +572,24 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
         xyz_hist: Candidate set to align, from 2D histology image, in pixels. (3,n)
         n_hypo: Number of hypotheses to batch together before evaluating inliers. Smaller values are recommended for small point sets.
         thr1: Log-ratio consistency threshold for prescreening candidate triplets.
-        pcr99_inlier_thresh: threshold for considering points inliers in PCR99a.
+        pcr99_inlier_thresh: threshold for considering points inliers in PCR99a (squared distance). 
+            LOWER = STRICTER geometric consistency in initial matching.
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
-            still considered an inlier during RANSAC iterations.
+            still considered an inlier during RANSAC iterations. LOWER = STRICTER geometric consistency in plane fitting.
         y_dist_thresh: threshold on the distance of points to the final plane (for planes close to parallel with y-axis). 
-            It defines which points are retained as the final inlier set.
+            It defines which points are retained as the final inlier set. LOWER = STRICTER geometric consistency.
         penalty_threshold: amount of XZ translation between the two point sets that is acceptable 
             before incurring a score penalty.
         xz_translation_penalty_weight: scaling factor for how severely to penalize XZ translation beyond penalty_threshold.
-        enforce_one_to_one: If True, enforce one-to-one matching constraint (each point matches at most one point).
+        enforce_one_to_one: If True, enforce one-to-one matching constraint during PCR99a and plane RANSAC
+            inlier selection (each point matches at most one point). This is integrated into the algorithms
+            themselves, not as post-processing.
         coord_tolerance: Tolerance for considering two points as the same when enforcing one-to-one matching.
-        use_xz_distance: If True, use XZ distance for one-to-one matching selection; otherwise use 3D distance.
-            Note: By default, uses transformation consistency - computes a consensus transformation and selects
-            pairs that best fit this transformation (lowest residual). This is more robust than simple distance.
+        use_xz_distance: If True, use XZ distance for transformation residual computation; otherwise use 3D distance.
+        transformation_residual_thresh: Threshold for transformation residuals in plane RANSAC.
+            Pairs with residuals above this threshold are filtered out. LOWER = STRICTER geometric consistency.
+            If None, no filtering is applied. Recommended: 5-20 for tight consistency.
     
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
@@ -507,19 +615,15 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     xyz_hist = xyz_hist[:, sort_idx]
     xyz_oct  = xyz_oct[:, sort_idx]
 
-    # 3. pcr
-    A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh)
+    # 3. pcr (with one-to-one matching built in)
+    A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh,
+                        enforce_one_to_one=enforce_one_to_one, coord_tolerance=coord_tolerance)
 
-    # 4. plane fit ransac
+    # 4. plane fit ransac (with one-to-one matching and transformation consistency built in)
     A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, y_dist_thresh,
-                 penalty_threshold, xz_translation_penalty_weight)
-
-    # 4.5. Enforce one-to-one matching constraint
-    if enforce_one_to_one and A.shape[1] > 0:
-        # Use transformation consistency to determine which pairs are correct
-        # This evaluates how well each pair fits the overall transformation
-        A, B = enforce_one_to_one_matching(A, B, coord_tolerance, use_xz_distance, 
-                                          pair_scores=None, use_transformation_consistency=True)
+                 penalty_threshold, xz_translation_penalty_weight,
+                 enforce_one_to_one=enforce_one_to_one, coord_tolerance=coord_tolerance,
+                 transformation_residual_thresh=transformation_residual_thresh, use_xz_distance=use_xz_distance)
 
     # 5. Final transform
     if A.shape[1] == 0:
