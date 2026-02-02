@@ -352,11 +352,11 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
             pass  # If transformation fails, use plane distance
     
     # Enforce one-to-one matching if requested
-    if enforce_one_to_one and len(candidate_inliers) > 0:
-        candidate_inliers = _enforce_one_to_one_in_inliers(
-            points_from_oct, points_from_hist, candidate_inliers, 
-            ranking_errors, coord_tolerance
-        )
+    # if enforce_one_to_one and len(candidate_inliers) > 0:
+    #     candidate_inliers = _enforce_one_to_one_in_inliers(
+    #         points_from_oct, points_from_hist, candidate_inliers, 
+    #         ranking_errors, coord_tolerance
+    #     )
     
     A_final = points_from_oct[:, candidate_inliers]
     B_final = points_from_hist[:, candidate_inliers]
