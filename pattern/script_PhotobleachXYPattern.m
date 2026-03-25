@@ -30,6 +30,10 @@ octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
 nPasses = 2; % For gel use 1 pass. For brain tissue use 2. Keep as low as possible. If galvo gets stuck, increase number. 
 line_exposure_sec_mm = 5; % sec/mm. For gel use 0.5 sec/mm. For brain tissue use 5 sec/mm
 
+%% Load hardware
+yOCTHardware('init', 'OCTSystem', 'Ganymede', 'skipHardware', skipHardware, ...
+    'octProbePath', octProbePath, 'autoCleanup', true);
+
 %% Perform photobleach of pattern
 yOCTPhotobleachTile(...
     [x_start_mm; y_start_mm], ...
@@ -39,5 +43,8 @@ yOCTPhotobleachTile(...
     'z',z_mm,'skipHardware',skipHardware ...
     ...,'laserToggleMethod','LaserPowerSwitch' ... Comment this section out to use laser
     );  
+
+%% Cleanup for next run
+yOCTHardware('teardown');
 
 disp('Done Patterning')
