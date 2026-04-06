@@ -1,3 +1,10 @@
+"""
+PCR99a: robust correspondence and affine alignment for coplanar point sets.
+
+Use ``plane="xy"`` when slices are approximately parallel to the XY plane (histology Z is
+degenerate / set to 1 in the final affine step). Use ``plane="xz"`` when slices are
+approximately parallel to the XZ plane (histology Y is set to 1).
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -195,9 +202,10 @@ def _core_PCR99a(xyz_gt, xyz_est, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_i
 
     return A, B
 
-def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000, 
+def plane_ransac(points_from_oct, points_from_hist, n_iter=2000,
                  plane_inlier_thresh=5, z_dist_thresh=4,
-                 penalty_threshold=8, xy_translation_penalty_weight=1):
+                 penalty_threshold=8, xy_translation_penalty_weight=1,
+                 y_dist_thresh=4, xz_translation_penalty_weight=1, plane="xy"):
     """
     RANSAC round 2: plane-based inlier set refinement.
     Params:
@@ -205,14 +213,17 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
             still considered an inlier during RANSAC iterations.
-        z_dist_thresh: threshold on the distance of points to the final plane. 
-            It defines which points are retained as the final inlier set.
-        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
-            before incurring a score penalty.
-        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+        z_dist_thresh: (``plane=="xy"``) threshold on perpendicular distance to the final plane for inliers.
+        penalty_threshold: in-plane translation magnitude that is acceptable before a score penalty.
+        xy_translation_penalty_weight: (``plane=="xy"``) weight on excess XY translation beyond penalty_threshold.
+        y_dist_thresh: (``plane=="xz"``) same role as ``z_dist_thresh`` for XZ-oriented planes.
+        xz_translation_penalty_weight: (``plane=="xz"``) weight on excess XZ translation beyond penalty_threshold.
+        plane: ``"xy"`` (~parallel to XY) or ``"xz"`` (~parallel to XZ).
     Returns:
         oct_points_final, hist_points_final: Arrays containing corresponding point pairs for selected inliers.
     """
+    if plane not in ("xy", "xz"):
+        raise ValueError('plane must be "xy" or "xz"')
 
     n = points_from_oct.shape[1]
     best_plane_normal = None
@@ -252,9 +263,14 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
         s_temp, R_temp, t_temp = sRt_from_N_points(A_sub, B_sub)
 
-        xy_trans = np.linalg.norm(t_temp[:2])
+        if plane == "xy":
+            trans_penalty_mag = np.linalg.norm(t_temp[:2])
+            w_trans = xy_translation_penalty_weight
+        else:
+            trans_penalty_mag = np.linalg.norm([t_temp[0], t_temp[2]])
+            w_trans = xz_translation_penalty_weight
 
-        score = num_inliers_candidate - xy_translation_penalty_weight * max(0, xy_trans - penalty_threshold)
+        score = num_inliers_candidate - w_trans * max(0, trans_penalty_mag - penalty_threshold)
 
         # Update best if score improved
         if score > best_score:
@@ -264,10 +280,10 @@ def plane_ransac(points_from_oct, points_from_hist, n_iter = 2000,
 
     best_plane_normal = best_plane_normal / np.linalg.norm(best_plane_normal)
 
-    # Z distance to the plane (signed projection)
     vecs_to_plane = points_from_oct - best_plane_point.reshape(-1, 1)  # shape (3×N)
-    z_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
-    valid_mask = z_dists <= z_dist_thresh
+    perp_dists = np.abs(best_plane_normal.T @ vecs_to_plane).flatten()  # shape (N,)
+    dist_thresh = z_dist_thresh if plane == "xy" else y_dist_thresh
+    valid_mask = perp_dists <= dist_thresh
 
     final_inliers = np.where(valid_mask)[0]
     A_final = points_from_oct[:, final_inliers]
@@ -348,7 +364,8 @@ def _compute_affine(A, B):
     return T_4x4
 
 def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_inlier_thresh=50, n_iter=2000, plane_inlier_thresh=5, z_dist_thresh=4,
-                 penalty_threshold=8, xy_translation_penalty_weight=1):
+                 penalty_threshold=8, xy_translation_penalty_weight=1,
+                 y_dist_thresh=4, xz_translation_penalty_weight=1, plane="xy"):
     """
     Run full alignment algorithm. 
     Inputs:
@@ -360,19 +377,22 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
         n_iter: RANSAC iterations to perform.
         plane_inlier_thresh: The maximum perpendicular distance from a candidate plane at which a point is 
             still considered an inlier during RANSAC iterations.
-        z_dist_thresh: threshold on the distance of points to the final plane. 
-            It defines which points are retained as the final inlier set.
-        penalty_threshold: amount of XY translation between the two point sets that is acceptable 
-            before incurring a score penalty.
-        xy_translation_penalty_weight: scaling factor for how severely to penalize XY translation beyond penalty_threshold.
+        z_dist_thresh: (``plane=="xy"``) max perpendicular distance to the fitted plane for final inliers.
+        penalty_threshold: acceptable in-plane translation before score penalty (XY or XZ, per ``plane``).
+        xy_translation_penalty_weight: penalty weight for excess XY translation when ``plane=="xy"``.
+        y_dist_thresh: (``plane=="xz"``) same role as ``z_dist_thresh`` for XZ-oriented runs.
+        xz_translation_penalty_weight: penalty weight for excess XZ translation when ``plane=="xz"``.
+        plane: ``"xy"`` (~parallel to XY) or ``"xz"`` (~parallel to XZ).
     
     Returns:
     T: transformation matrix such that T @ A = B, where A is a subset of xyz_hist and B is a subset of xyz_oct 
-    and the Z coordinate of point subset A is set to 1.
+    and the degenerate histology coordinate is set to 1 (Z for ``plane=="xy"``, Y for ``plane=="xz"``).
     s, R, t: T separated into scale, rotation, and translation components.
     A : filtered inliers from OCT point set.
     B: filtered inliers from histology point set corresponding to A.
     """
+    if plane not in ("xy", "xz"):
+        raise ValueError('plane must be "xy" or "xz"')
     # 1. Pairwise squared distance, log ratio matrix
     epsilon = 1e-10
     d_gt = np.sum((xyz_oct[:, :, None] - xyz_oct[:, None, :])**2, axis=0)  # (n, n)
@@ -394,12 +414,18 @@ def calculate_affine_alignment(xyz_oct, xyz_hist, n_hypo=1000, thr1=0.03, pcr99_
     A, B = _core_PCR99a(xyz_oct, xyz_hist, log_ratio_mat, sort_idx, n_hypo, thr1, pcr99_inlier_thresh)
 
     # 4. plane fit ransac
-    A, B = plane_ransac(A, B, n_iter, plane_inlier_thresh, z_dist_thresh,
-                 penalty_threshold, xy_translation_penalty_weight)
+    A, B = plane_ransac(
+        A, B, n_iter, plane_inlier_thresh, z_dist_thresh,
+        penalty_threshold, xy_translation_penalty_weight,
+        y_dist_thresh=y_dist_thresh, xz_translation_penalty_weight=xz_translation_penalty_weight, plane=plane,
+    )
 
     # 5. Final transform
     B_temp = B.copy()
-    B_temp[2, :] = 1
+    if plane == "xy":
+        B_temp[2, :] = 1
+    else:
+        B_temp[1, :] = 1
 
     T = _compute_affine(A, B_temp)
     s,R,t = sRt_from_N_points(A,B_temp)
