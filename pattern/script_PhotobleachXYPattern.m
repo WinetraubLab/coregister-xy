@@ -18,7 +18,7 @@ patternCenter_mm = [0,0,0;
                     0,-1,0];
 
 % OCT probe
-octProbePath = yOCTGetProbeIniPath('40x','OCTP900'); % Select lens magnification
+octProbePath = yOCTGetProbeIniPath('40x','OCTP900','SUMMER'); % magnification ('10x','20x','40x'), scanHead ('OCTG' or 'OCTP900'), variant ('WINTER','SUMMER','')
 
 % Pattern to photobleach. System will photobleach n lines from 
 % (x_start(i), y_start(i)) to (x_end(i), y_end(i)) at height z
