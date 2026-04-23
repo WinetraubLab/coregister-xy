@@ -246,14 +246,48 @@ class TestFitPlaneElastic(unittest.TestCase):
             FitPlaneElastic.from_points(uv_pix, xyz_mm)
         self.assertIn("Inverse consistency check failed", str(context.exception))
 
+    def test_the_case_where_elastic_transform_is_actually_affine(self):
+        # Set some points
+        np.random.seed(42)
+        uv_pix = np.random.randint(0, 101, size=(5, 2)) # Place some points
+
+        # Generate some points in xyz.
+        # "xyz_mm" is the perfect affine model, "xyz_mm_noisy" is a noisy data
+        u_vec = np.array([1, 0, 0])
+        v_vec = np.array([0, 1, 0])
+        xyz_mm = u_vec * uv_pix[:, 0][:, np.newaxis] + v_vec * uv_pix[:, 1][:, np.newaxis]
+        xyz_mm_noisy = xyz_mm + np.random.normal(0, 1, xyz_mm.shape)
+
+        # Fit plane elastic with very little and a lot of smoothing
+        low_smoothing = 0.000001
+        high_smoothing = 10
+        fp_very_little_smoothing = FitPlaneElastic.from_points(uv_pix, xyz_mm_noisy, smoothing=low_smoothing)
+        xyz_very_little_smoothing = fp_very_little_smoothing.get_xyz_from_uv(uv_pix)
+        fp_alot_smoothing = FitPlaneElastic.from_points(uv_pix, xyz_mm_noisy, smoothing=high_smoothing)
+        xyz_alot_smoothing = fp_alot_smoothing.get_xyz_from_uv(uv_pix)
+
+        def get_dist_to_data_and_to_model(candidate, data, model):
+            d_to_data  = np.mean(np.linalg.norm(candidate - data, axis=1))
+            d_to_model = np.mean(np.linalg.norm(candidate - model, axis=1))
+            return d_to_data, d_to_model
+
+        # Compare distance to data and to affine model
+        d_to_data_l, d_to_model_l = get_dist_to_data_and_to_model(xyz_very_little_smoothing, xyz_mm_noisy, xyz_mm)
+        self.assertGreater(
+            d_to_model_l, d_to_data_l,
+            f"When smoothing is low ({low_smoothing}), elastic plane needs to be closer to data then the model (affine)")
+        d_to_data_a, d_to_model_a = get_dist_to_data_and_to_model(xyz_alot_smoothing, xyz_mm_noisy, xyz_mm)
+        self.assertGreater(
+            d_to_data_a, d_to_data_l,
+            f"High smoothing ({high_smoothing}) points need to be further from the data compared to low smoothing ({low_smoothing})")
+        self.assertLess(
+            d_to_model_a, d_to_model_l,
+            f"High smoothing ({high_smoothing}) points need to be closer to the model compared to low smoothing ({low_smoothing})")
+        self.assertLess(
+            d_to_model_a, d_to_data_a,
+            f"When smoothing is high({high_smoothing}), elastic plane needs to be closer to the model (affine) then the data")
+
     def test_get_normal(self):
-        xyz_mm = np.array([
-            [0, 0, 0],  
-            [1, 0, 1],   
-            [0, 1, 1],   
-            [1, 1, 2],   
-            [0.5, 0.5, 1.5]  
-        ])
         fp = FitPlaneElastic.from_points(self.fluorescent_image_points_positions_uv_pix, self.template_positions_xyz_mm)
         npt.assert_almost_equal([0,0,1], fp.normal())
 
